@@ -1,0 +1,391 @@
+```{r, include = F}
+t <- q <- 1 # Task counter
+qu <- function(x = q) {
+  q <<- x + 1
+  return(paste0("**Question ", x, ": **"))
+}
+ex <- function(x = t) {
+  t <<- x + 1
+  return(paste0("**Exercise ", x, ": **"))
+}
+```
+
+\newif\ifsol
+\sol`r ifelse(solution, "true", "false")`
+
+```{r, echo = F}
+# load libraries
+library(lattice)
+library(ggplot2)
+library(dplyr)
+```
+
+packages needed: `lme4`, `arm`, `lattice` (`lattice` comes with `R`; it needs to be loaded using `library()` but there is no need to install it)
+
+Examples in previous lab sessions have highlighted changes over time (vocabulary study, arthritis study, fertility and climate data). Now we are going to focus on an alternative setup for repeated measurements where individuals are studied under a series of related conditions. We will use experiments from psycholinguistics (Lab 4) and cognitive psychology (Lab 5) as examples.
+
+
+# Nested and crossed effects
+
+An important advantage of the `lme4` package in `R` is that it offers mixed-effects modelling with crossed random effects. For illustration, we will use a (constructed) dataset taken from Raaijmakers, Schrijnemakers, and Gremmen (1999) (see their Table 2).[^1] A lexical decision task was performed where subjects had to decide whether each stimulus was a word. The interval between the presentation of a distractor stimulus and the target word was varied to see if this affected reaction time in the classification task. This interval is referred to as stimulus onset asynchrony (SOA). Eight words were shown to each participant under either a long or short SOA. Load the data.
+
+[^1]: This data is also discussed in Baayen (2008) (Section 7.2.1, note that the wording and data frames differ in different (pre)prints of the book) as well as Baayen *et al.* (2008, p. 401).
+
+## Load data and examine design
+
+```{r}
+# Load lexical decision task data
+ldt <- read.table("raai.dat", header = T)
+```
+
+`r qu()`Use table() to explore the design of the experiment. How many times does each participant see each stimulus item W1-W8? Are the ways of the data (subject, SOA, and item) nested or crossed?
+
+**Tip: **
+
+- Pass one or two columns from a data to `table()` to build a contingency table.
+
+    ```{r, eval = F}
+    # Examine experimental design
+    table(ldt$SOA)
+    table(ldt[, c('Subject', 'Item')])
+    table(ldt[, c('Subject', 'SOA')])
+    table(ldt[, c('Item', 'SOA')])
+    ```
+
+
+- **Nested** means a group at one level of the hierarchy only appears in one of the higher-order levels. **Crossed** designs mean that each of the lower-order group is observed within each of the higher-order groups.
+
+\ifsol
+
+```{r, include = solution}
+### ANSWER ###
+
+table(ldt$SOA)
+```
+
+
+- The factor SOA has two levels: *long* and *short.* There are 32 observations for each SOA condition.
+
+```{r, include = solution}
+table(ldt[, c('Subject', 'Item')])
+```
+
+
+- Each subject responds to each word (item) once.
+
+```{r, include = solution}
+table(ldt[, c('Subject', 'SOA')])
+```
+
+
+- Each subject responds an equal number of times to items in the two SOA conditions.
+
+```{r, include = solution}
+table(ldt[, c('Item', 'SOA')])
+```
+
+
+- Notably, the items are NESTED under SOA: items 1 through 4 are always used in the short condition, and items 5 through 8 in the long condition.
+
+Subject and item are CROSSED in this design. Subject and SOA are also CROSSED. The items, however, are NESTED under SOA. (This kind of design is known as a *split-plot* design.)
+
+\fi
+
+## Variance component models
+
+Because the stimulus words can be seen as samples from a larger population of possible stimuli, it is useful to model them as random effects along with the subjects. We start with a model that estimates the effect of SOA and reaction time while accounting for differences between subjects.
+
+``` {r}
+library(lme4)
+
+# Model with subject as a random effect
+ldt.M1 <- lmer(RT ~ 1 + SOA + (1 | Subject), data = ldt)
+```
+
+The subject intercepts from the model can be visualized with a *"caterpillar plot"* for conditional modes (lecture 3, slide 56; lecture 4, slide 33):
+
+```{r}
+# Dot plot of random effects for subject
+print(dotplot(ranef(ldt.M1, condVar = T))[['Subject']])
+```
+
+The `condVar = T` requests the standard errors for each subject's parameter estimate. The name of the group to be plotted goes between the `[[' ']]`. (In `lme4` versions < 1.0 the `condVar` argument was named `postVar`.)
+
+&nbsp;
+
+`r qu()`What is the difference in reaction times between the long and short SOA condition?
+
+```{r, include = solution}
+### ANSWER ###
+
+str(ldt$SOA)
+```
+
+
+- tells us that SOA is a factor with 2 levels "long" and "short" (long is the reference)
+
+```{r, include = solution}
+fixef(ldt.M1)
+```
+
+- tells us that reaction times for the short SOA are 22.4 ms longer than for the long SOA
+
+&nbsp;
+
+`r qu()`Model `ldt.M1` fits an intercept for each subject as a random effect. Build another model, called `ldt.M2`, that also fits an intercept for each item as a random effect.
+
+**Tip: **Note that the determination of nested or crossed random effects is done for you by `lmer()`.
+
+```{r, include = solution}
+### ANSWER ###
+
+ldt.M2 <- lmer(RT ~ 1 + SOA + (1 | Subject) + (1 | Item), data = ldt)
+```
+
+&nbsp;
+
+`r qu()`Does model 2 offer a better fit compared to the likelihood ratio test?
+
+\ifsol
+
+```{r, include = solution}
+### ANSWER ###
+
+anova(ldt.M1, ldt.M2)
+```
+
+```{r, echo = F}
+x <- round(anova(ldt.M1, ldt.M2), 3)
+```
+Yes, model 2 offers a better fit, $\chi^2(`r x[["Chi Df"]][2]`) = `r x$Chisq[2]`; p < .001$. Note that `logLik` values are typically negative, and relatively larger values (close to zero) are indicative of a better fit (lecture 3), $`r paste(rev(x$logLik), collapse = " > ")`$.
+
+\fi
+
+&nbsp;
+
+`r qu()`Which model has the better fit according to AIC?
+
+\ifsol
+
+```{r, include = solution}
+### ANSWER ###
+```
+Lower values of AIC are better (lecture 3), therefore model 2 provides the better fit, `r paste(rev(x$AIC), collapse = " < ")`.
+
+\fi
+
+&nbsp;
+
+`r qu()`How does the estimate of the difference in RT between the long and short SOA from model 2 compare to model 1?
+
+\ifsol
+
+```{r, include = solution}
+### ANSWER ###
+
+# They are identical
+fixef(ldt.M2)['SOAshort']
+```
+
+\fi
+
+## Between subject variability in effect of SOA
+
+Like fitting a different slope for each subject to represent change over time in a longitudinal study, individual differences in treatment effects or experimental conditions can also be examined with linear mixed-effects models. For example, do subjects differ in how quickly they react under short versus long SOA?
+
+&nbsp;
+
+```{r}
+# Varying slope of SOA for Subject
+ldt.M3 <- lmer(RT ~ 1 + SOA + (1 + SOA | Subject) + (1 | Item), data = ldt)
+```
+
+&nbsp;
+
+`r qu()`Do subjects differ in how changes in SOA affect their reaction times?
+
+\ifsol
+
+```{r, include = solution}
+### ANSWER ###
+
+anova(ldt.M2, ldt.M3)
+```
+
+```{r, echo = F}
+x <- round(anova(ldt.M2, ldt.M3), 3)
+```
+
+Yes, subjects differ in how changes in SOA affect their reaction times because model 3 offers a better fit, $\chi^2(`r x[["Chi Df"]][2]`) = `r x$Chisq[2]`;\ p < .001$.
+
+\fi
+
+&nbsp;
+
+`r qu()`Visualise these individual differences. Technically, produce a caterpillar plot of the by-subject random slopes for SOA.
+
+```{r, include = solution}
+### ANSWER ###
+
+print(dotplot(ranef(ldt.M3, condVar = T))[['Subject']][2])
+# for slopes only
+
+# OR (simply applying the code from p. 3 above)
+print(dotplot(ranef(ldt.M3, condVar = T))[['Subject']])
+# - for both intercept and slopes
+```
+
+&nbsp;
+
+`r qu()`Based on this incremental model building, what is your conclusion with regard to the SOA effect?
+
+**Tip: **keyword is *significance* of fixed effects.
+
+\ifsol
+
+```{r, include = solution}
+### ANSWER ###
+```
+
+The fixed effect of SOA is only significant in model 1, $t > 2$; it does not generalize once additional sources of variation in the data are controlled for ($t < 2$ in models 2 and 3).
+\fi
+
+# Random-effects structure & zero-correlation parameter model
+
+It has been suggested that linear mixed-effects models generalize best when they include the maximal random effects structure justified by the design (Barr, Levy, Scheepers, & Tily, 2013), see Lecture 4 slide 37 onwards.
+
+&nbsp;
+
+`r qu()`What is the maximal random effects structure justified by the design for the lexical decision data in the `ldt` data frame?
+
+**Tip: **Random slopes are only appropriate for within-subjects and within-items factors solution.
+
+\ifsol
+
+```{r, include = solution}
+### ANSWER ###
+```
+
+It is the structure of the `ldt.M3` model:
+
+> `(1 + SOA | Subject) + (1 | Item)`
+
+It is not sensible to include by-item random slopes as the items are nested under SOA.
+
+\fi
+
+&nbsp;
+
+Let's take another look at `ldt.M3`. The by-subject random effects for slopes and intercepts are paired observations. Therefore the model specification that we used here allows for these two random variables (intercept and slope) to be correlated. The estimate of this correlation is a parameter of the mixed effects model.
+
+&nbsp;
+
+`r qu()`How large is this correlation?
+
+**Tip: **You will find it in the 'summary' output of model ldt.M3.
+
+```{r, include = solution}
+### ANSWER ###
+
+print(summary(ldt.M3), cor = F)
+```
+
+A question that arises is whether there is reliable evidence that this correlation parameter is different from zero. We can test this by specifying a zero-correlation parameter model, *i.e.,* we are forcing the correlation between by-subject random intercept and slope to be zero (See slides 46-48 in Lecture 4, from slide 47).
+
+The syntax for uncorrelated random intercept and slope is
+
+> `1 + A + (1 | subject) + `\textcolor{blue}{\texttt{ (0 + A | subject)}},
+
+or, more conveniently,
+
+> `A + `\textcolor{blue}{\texttt{ (A || subject) }}
+
+&nbsp;
+
+`r qu()`Change the random-effects structure of `ldt.M3` such that it turns into a zero-correlation parameter model; call this new model `ldt.M3.zcp`.
+
+a) Use the above syntax
+
+    ```{r, include = solution}
+    ### ANSWER ###
+
+    ldt.M3.zcp <- lmer(RT ~ 1 + SOA + (1 + SOA || Subject) + (1 | Item), data = ldt)
+    print(summary(ldt.M3.zcp), cor = F)
+    ```
+
+b) Well, if you use above syntax, there is still a correlation in the model output, how annoying. As I mentioned in the lecture, there are (currently) some constraints on using this syntax. A detailed account is provided [here](http://rpubs.com/Reinhold/22193). Specifically, 'SOA' is a categorical variable and therefore coded as a factor. The solution to the problem is to turn 'SOA' into a numeric variable. If you don't know how to convert a factor to a numeric variable, ask Google. Then try again to specify a zero-correlation parameter model.
+
+    ```{r, include = solution}
+    ### ANSWER ###
+
+    ldt$SOA_num <- as.numeric(ldt$SOA)
+    ldt.M3.zcp <- lmer(RT ~ 1 + SOA_num + (1 + SOA_num || Subject) +
+                        (1 | Item), data = ldt)
+    print(summary(ldt.M3.zcp), cor = F)
+    ```
+
+&nbsp;
+    
+`r qu()`Perform a likelihood ratio test to check whether forcing the correlation parameter to be zero significantly decreases the goodness of fit.
+
+**Tip: **The critical model for this comparison are models `ldt.M3.zcp` and `ldt.M3`
+
+```{r, include = solution}
+### ANSWER ###
+
+anova(ldt.M3.zcp, ldt.M3)
+```
+
+&nbsp;
+
+`r qu()`Match the `R` output obtained when answering Question 13 to a sentence of the following form:
+
+> According to the likelihood ratio test, `ldt.M3.zcp` offers an [equal/worse/better] fit than `ldt.M3`, $\chi^2(\Delta df) = ??.??,\ p = .???$.
+
+**Tip: **
+
+<!-- the &#8209; below is a non-breaking hyphen ( for formatting purposes) -->
+
+- $\chi^2$ is the Chi square value equal to the difference of the model deviances (which are equal to $-2\times$log&#8209;likelihood, AKA $-2LL$)
+
+- $\Delta df$ is difference in degrees of freedom (*i.e.,* numbers of parameters) between the two models
+
+\ifsol
+
+```{r, include = solution}
+### ANSWER ###
+```
+
+```{r, echo = F}
+x <- round(anova(ldt.M3.zcp, ldt.M3), 2)
+```
+
+According to the likelihood ratio test, `ldt.M3.zcp` offers a worse fit than `ldt.M3`, $\chi^2(`r x[["Chi Df"]][2]`) = `r x$Chisq[2]`;\ p < .001$.
+
+\fi
+
+
+# References
+
+Baayen, R. H. (2008). *Analyzing linguistic data: A practical introduction to statistics using R.* 
+
+> Cambridge: University Press. [link](http://www.sfs.uni-tuebingen.de/~hbaayen/publications/baayenCUPstats.pdf)
+
+Baayen, R. H., Davidson, D. J., & Bates, D. M. (2008). Mixed-effects modeling with crossed random effects
+
+> for subjects and items. *Journal of Memory and Language, 59*(4), 390-412.
+
+> doi:10.1016/j.jml.2007.12.005
+
+Barr, D. J., Levy, R., Scheepers, C., & Tily, H. J. (2013). Random effects structure for confirmatory
+
+> hypothesis testing: Keep it maximal. *Journal of Memory and Language, 68*(3), 255-278.
+
+> doi:10.1016/j.jml.2012.11.001
+
+Raaijmakers, J. G. W., Schrijnemakers, J. M. C., & Gremmen, F. (1999). How to deal with "The
+
+> language-as-fixed-effect fallacy": Common misconceptions and alternative solutions. *Journal of Memory*
+
+> *and Language, 41*(3), 416-426. doi:10.1006/jmla.1999.2650
+

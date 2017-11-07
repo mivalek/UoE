@@ -1,0 +1,325 @@
+
+This week we'll be merging data collected from a number of sources before running a simple correlation and a linear model. You should end up knowing a bit more about data manipulation, as well as about running statistical tests. As always, create a new project in RStudio.
+
+# Aperitif: `merge()` and missing values
+
+First of all, generate a data frame with IQ measurements for 5 people (Amos, Bill, Chas, Dave, and Earl).
+(**Hint: **Remember that IQ is a normally distributed variable with $Mean = 100$ and $SD = 15$.)
+
+``` {r, include = solution}
+### ANSWER ###
+
+iq.f <- data.frame(name = factor(c('Amos', 'Bill', 'Chas', 'Dave', 'Earl')), 
+          iq = rnorm(n = 5, mean = 100, sd = 15))
+```
+```{r, echo = F}
+iq.f
+```
+
+Next, create another data frame with height measurements for 5 people (Bill, Dave, Earl, Fred, and Greg).
+
+``` {r, include = solution}
+### ANSWER ###
+
+ht.f <- data.frame(name = factor(c('Bill', 'Dave', 'Earl', 'Fred', 'Greg')), 
+          height = rnorm(5, 175, 15))
+```
+```{r, echo = F}
+ht.f
+```
+You'll notice that the data frames you've created contain partially overlapping information (some of the names). If you wanted to test for a relationship between IQ and height[^1] it would be useful to create one merged data frame. Perhaps predictably, the `R` function for this is `merge()`:
+
+[^1]: This would be a bit silly with 5 observations (and a bit silly anyway!) but it's just an example. 
+
+Try the following commands:
+```{r}
+merge(iq.f, ht.f)
+merge(iq.f, ht.f, all = T)
+```
+
+What do the different versions do? What would you do if the columns in each data frame had different names? (Try `?merge`).
+
+Now create a new merged data frame (note, this command is slightly different again):
+```{r}
+new.f <- merge(iq.f, ht.f, all.x = T)
+new.f
+```
+
+Calculate the means of the different relevant columns. *Revision: The first two calculations do the same thing (why?)*
+
+```{r}
+mean(new.f$iq)
+mean(new.f[ ,2])
+```
+
+Now calculate the mean `height`:
+``` {r, include = solution}
+mean(new.f$height)
+```
+## Missing Values
+`mean(new.f$height)` doesn't give you a mean; instead it returns `NA`. If you completed last weeks worksheet you will have encountered `NA` values and perhaps learned to deal with them. The fact that `R` returns `NA` rather than ignoring any `NA`s in the values given may seem dumb at first (why can't it ignore the missing values?) but in fact it's based on an important principle: *You should know your data and you should know that there are missing values, and tell `R`.* If it 'silently' dealt with missing values, you could end up with meaningless results through not checking your data properly.
+
+For simple functions (like `mean()`, `sd()`, etc.) *the only way to get `R` to ignore `NA`s is as follows* (`na.rm` can be read as "`NA` remove"):
+```{r}
+mean(new.f$height, na.rm = T)
+```
+
+For more complicated functions (like `lm()`, which we'll meet below) there is a general default behaviour called `na.omit` which deletes missing values prior to calculation. 
+
+
+
+# Starter: A useful function
+
+In Lab 5, you learnt to write functions; in Lab 6, you learnt about logical subsetting (where items in a vector or matrix are selected according to the logical values `T` or `F`). Can we put these together here?
+
+Write a function called `outliers()` to test whether any of the elements passed to it are greater than, or less than, `x` standard deviations from the mean (where `x` is a value passed to the function). You should use a template something like the following:
+```{r}
+outliers <- function(obs, x = 2.5) {
+ # code goes here
+}
+```
+
+``` {r, include = solution}
+### ANSWER ###
+
+## one possible solution
+outliers <- function(obs, x = 2.5) {
+ # the following line returns TRUE if outlier, FALSE otherwise (for each element of 'obs')
+ return(abs(obs - mean(obs, na.rm = T)) > (sd(obs, na.rm = T) * x))
+}
+```
+
+**Tip: **Your function takes two values: `obs` (a vector or matrix of observations), and `x`, as above. `x = 2.5` passes a *default value* to `x`: If you don't specify an explicit value, the default will be used. This means that you can use `outliers(vec)` to find elements in a vector more than 2.5 sds from the mean; or `outliers(vec, 2)` if you prefer 2 sds from the mean.
+
+Now write the code to complete the function: 
+
+
+**Tip: **You solved most of this problem last week, when you looked for `outliers' in a matrix. You would have written code something like the following:
+`mat[mat > mean(mat) + 2 * sd(mat)] <- NA`
+
+Here, you're being asked to produce a function that does something similar to the code inside the `[]` above. You want to use `x` rather than `2` so that the number of standard deviations can be arbitrary, and you need to take into account that your input could include `NA`s.
+
+You also need to think about detecting values that are 'x' standard deviations *below* the mean, in addition to those above it. 
+
+**Pro tip: **A neat solution to this problem might involve using the `abs()` function which converts values to their absolute value. See `?abs`, also for more on what an absolute value is, look here <https://www.mathsisfun.com/numbers/absolute-value.html>.
+
+Test your `outliers` function with the following code: Does it correctly identify the 2 outliers?
+
+```{r}
+vec <- rnorm(20, 100, 15)
+vec[sample(length(vec), 2)] <- 250 # create two outliers at random
+vec # inspect vector to find outliers
+which(outliers(vec)) # check outliers function
+```
+
+
+# Main Course: Some data manipulation
+
+```{r, include = F}
+# gen.corr <- function(rho = .85, xmean = 100, ymean = 50, xvar = 15^2, yvar = 20^2, n = 40) {
+#  require(MASS, quietly = T)
+#  Sigma = matrix(c(xvar, sqrt(xvar * yvar) * rho, sqrt(xvar * yvar) * rho, yvar), 2, 2)
+#  d.f <- as.data.frame(mvrnorm(n, c(xmean, ymean), Sigma, empirical = T))
+#  names(d.f) <- c('x', 'y')
+#  d.f
+# }
+# 
+# samp.A <- gen.corr(.45, n = 50)
+# colnames(samp.A) <- c('iq', 'exam')
+# samp.A$school <- 'A'
+# samp.B <- gen.corr(.25, n = 50)
+# colnames(samp.B) <- c('iq', 'exam')
+# samp.B$school <- 'B'
+# samp.C <- gen.corr(.15, n = 40)
+# colnames(samp.C) <- c('iq', 'exam')
+# samp.C$school <- 'C'
+# big <- rbind(samp.A, samp.B, samp.C)
+# big$school <- as.factor(big$school)
+# big$gender <- factor(rbinom(140, 1, .5), labels = c('female', 'male'))
+# addme <- rnorm(140, 6, 1.5)
+# big$exam[big$gender =='female'] <- big$exam[big$gender =='female'] + addme[big$gender =='female']
+# addme <- rnorm(140, 10, 1)
+# big$exam[big$school =='C'] <- big$exam[big$school =='C'] + addme[big$school =='C']
+#save(big, file = 'interim.Rdata')
+# load('interim.Rdata')
+# ## add some NAs
+# big$exam[sample(length(big$exam), 3)] <- NA
+# big$iq[sample(length(big$iq), 1)] <- 250
+# big$school <- as.character(big$school)
+# big$school[big$school =='A'][sample(length(big$school[big$school =='A']), 1)] <- 'a'
+# big$school <- as.factor(big$school)
+# nbig <- data.frame(iq = rnorm(27, 100, 15), exam = NA, school = factor(rbinom(27, 1, .5), labels = c('A', 'B')), gender = factor(rbinom(27, 1, .5), labels = c('female', 'male')))
+# big <- rbind(big, nbig)
+# big$iq <- round(big$iq, 0)
+# big$exam <- round(big$exam, 0)
+# # make IDs
+# ids <- sapply(sample(999, length(big$iq)), function(x) {paste0('s', sprintf("%03d", x))})
+# big$id <- factor(ids)
+# big <- big[order(big$id), ]
+# big$exam[big$exam %in% c(102, 103)] <- 100
+# save(big, file = 'interim2.Rdata')
+# load('interim2.Rdata')
+# schoolA <- subset(big, school %in% c('A', 'a'))
+# schoolA <- schoolA[, c(5, 3, 4, 1, 2)]
+# row.names(schoolA) <- 1:length(schoolA$id)
+# schoolA <- droplevels(schoolA)
+# schoolB <- subset(big, school =='B')
+# schoolB.IQ <- schoolB[, c(5, 1)]
+# schoolB.IQ <- schoolB.IQ[order(schoolB.IQ$iq), ]
+# row.names(schoolB.IQ) <- 1:length(schoolB.IQ$id)
+# schoolB.IQ <- droplevels(schoolB.IQ)
+# schoolB.exam <- schoolB[, c(5, 3, 4, 2)]
+# schoolB.exam <- subset(schoolB.exam, !is.na(schoolB.exam$exam))
+# row.names(schoolB.exam) <- 1:length(schoolB.exam$id)
+# schoolB.exam <- droplevels(schoolB.exam)
+# rm(schoolB)
+# schoolC <- subset(big, school =='C')
+# schoolC <- schoolC[, c(5, 3, 4, 1, 2)]
+# names(schoolC) <- c('id', 'school', 'gender', 'IQ', 'exam')
+# row.names(schoolC) <- 1:length(schoolC$id)
+# schoolC <- droplevels(schoolC)
+# save(schoolA, schoolB.IQ, schoolB.exam, schoolC, file = 'lab7.Rdata')
+```
+
+The aim of this exercise is for you to load some data, get it into a suitable format for analysis, and perform (for now) a simple correlation, and a linear regression. *NB., most of this exercise is about getting data into shape: Doing the stats is easy!*.
+
+Download the data from the LEARN (lab7.Rdata), and load it into `R`.
+
+**Tip: **This data is in `R` format, not `.csv` (because it contains several data frames). If you know how, save it into your project folder. Use one of the commands below to load it into `R`:
+
+```{r, eval = F}
+load('lab7.Rdata') # if your data is in your project folder
+load(file.choose()) # or if you want to use the GUI
+```
+
+```{r, include = F}
+load('lab7.Rdata')
+```
+
+**Tip: **The first thing you should do when you've loaded your data is look at the `Environment` tab in Rstudio (top right), or type `ls()`, to find out what new objects you've loaded.
+
+**Pro tip: **`ls()` returns a list of all the objects (variables and functions) in your workspace. That means it's very useful if you want to delete everything and start again: You can use `rm(list = ls())` (or if you like pointing and clicking, just click on the broom in RStudio's Environment tab). `rm()` is the function to \underline{r}e\underline{m}ove things.
+
+You have data from three different Universities on some students in their statistics classes. Each University (or School) has provided you with the same information; unfortunately, they have provided it in slightly different formats. Your task is to assemble all of the information into *one* data frame called `schools`, suitable for further analysis.
+
+The data should consist of a unique student identifier, and for each student, the school they're in, their IQ, an exam score, and their gender. Unfortunately the records are not all complete (in particular, some exam scores are missing), and there may be other errors.
+
+**Tip: **You will definitely want to use `merge()` to tackle this (be careful with the `all` arguments!). You may also be able to use `rbind()` to bind things row-wise as an alternative for some (but not all) merges. You should also be thinking about your indexing skills from last week's lab. Below are some things you might want to think about:
+
+- are the observations complete?
+- are there any typos?
+- do the column names match?
+- are there any unlikely values, or outliers?
+
+The general approach is probably to fix up (or merge) the data from each individual school, before merging the complete dataset together (NB., you can only merge two things at a time...)
+
+``` {r, include = solution}
+### ANSWER ###
+
+#### SOME STEPS YOU MIGHT TAKE
+
+summary(schoolA)
+# maximum IQ of 250 looks suspect!
+schoolA$iq[schoolA$iq > 180]
+# there's just one; fix it
+schoolA$iq[schoolA$iq > 180] <- NA
+# exam range looks very broad; is the 3 unusual?
+which(outliers(schoolA$exam))
+# actually there are no outliers at 2.5sd; just a wide spread, see
+hist(schoolA$exam) # or:
+ggplot2::qplot(schoolA$exam, binwidth = 10)
+# Look at the levels of school: 'a' and 'A'.....
+# there's an 'a' where there should be an 'A'
+schoolA$school[schoolA$school == 'a'] <- 'A'
+# (can be useful to drop levels, although merge() should cope with this)
+schoolA <- droplevels(schoolA)
+
+# There are more IQ than exam entries (see number of NAs);
+# We just have to throw away IQinfo for which there's no exam info etc.
+schoolB <- merge(schoolB.IQ, schoolB.exam)
+summary(schoolB)
+# everything else looks hunky dory
+
+# can now merge schools A&B: all = T is important, think about why!
+schools <- merge(schoolA, schoolB, all = T)
+
+summary(schoolC)
+# column name is "IQ" rather than "iq"
+colnames(schoolC)[4] <- 'iq'
+# in doing random checking...
+which(outliers(schoolC$exam))
+schoolC$exam[35]
+# there's a very low score. But there was for SchoolA (not an outlier)
+# so I'll wait until the scores are merged.
+# However, there's an impossible exam mark of 104!
+schoolC$exam[schoolC$exam > 100] <- NA
+
+# now merge again
+schools <- merge(schools, schoolC, all = T)
+
+## check exam one more time for outliers
+hist(schools$exam)
+which(outliers(schools$exam))
+schools$exam[42]
+### OK, that 3 *is* low according to the 2.5sd default
+schools$exam[42] <- NA
+```
+
+# Side Dish: A note on correlation
+
+```{r}
+x = seq(50, 150, 4)
+y = x + rnorm(n = length(x), m = 0, sd = 5) # add some random noise to x and store it in y
+y2 = 2 * x + rnorm(n = length(x), m = 0, sd = 10)
+y3 = 4 * x + rnorm(n = length(x), m = 0, sd = 20)
+```
+
+Take a look at the plot generated below where the black, blue, and red values (and their 'line of best fit') represent different variables and their relationship with the variable `x`. Take a second to think about what you expect the correlations between `x` and the three different variables representing `Y` (black, blue, and red) will be. 
+
+```{r}
+plot(x, y, ylim = c(0, 650))
+points(x, y2, col = "blue")
+points(x, y3, col = "red")
+abline(lm(y ~ x))
+abline(lm(y2 ~ x), col = "blue")
+abline(lm(y3 ~ x), col = "red")
+```
+
+Some of you may have been tempted to suggest that the blue line indicates a higher correlation than the black line, and similarly that the red line indicates a higher correlation than both alternatives. This is a common mistake when thinking about correlations. All these correlations are actually identical (almost 1):
+
+```{r}
+cor(x, y) # Black
+cor(x, y2) # Blue
+cor(x, y3) # Red
+```
+
+Remember that correlation tells you how well the line fits the data (how close the points are to it) and not how steep it is. Looking at all the lines again - you can see that in each case knowing the value of `X` for any one participant allows you to say with almost certainty what their `Y` value would be. The steepness of the gradient is determined by the increase in `Y` units for each one unit increase in `X` - this is the coefficient from the linear model.
+
+
+
+# Dessert: Some statistics!
+Using `cor.test()` and `lm()`, run a correlation, and then a linear model, to examine the relationship between IQ and exam performance in the `schools` dataset you've just created. What can you conclude from your analyses?
+
+**Tip: **`cor.test()`, and other `R` functions ending in `.test`, are simple functions, designed to do a test and print out information immediately. `lm()` is a bit more complex: The simplest way to start with it is to assign its output to a variable (`var <- lm(...)`) and then use `summary()` to tell you the most useful information about it (`summary(var)`).
+
+```{r}
+load(url("http://is.gd/tsktsk"))
+``` 
+
+```{r}
+# NB., results may differ slightly depending on merging decisions
+
+with(schools, cor.test(iq, exam))
+# there's a significant positive correlation between iq and exam;
+
+# higher iq is associated with better exam score
+
+model <- lm(exam~iq, data = schools)
+summary(model)
+# the model is better than the null model (F-test; p < .05)
+
+# for each point increase in iq, exam score goes up by 0.34 (coefficient)
+
+``` 
+
+

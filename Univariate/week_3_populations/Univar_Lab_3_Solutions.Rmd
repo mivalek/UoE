@@ -1,0 +1,100 @@
+---
+title: "Lab 3"
+author: "Univariate Statistics with R"
+output: pdf_document
+---
+
+Below is a set of suggested answers for questions 1 to 9 at the end of Lab 3. Note, this is just one way of doing the tasks in the question set. If you have used different code, provided the end results look similar to those presented below, this is fine. So, here we go;
+
+Read in data:
+
+```{r}
+data = read.csv("Univar_Lab_3_Data.csv", header = T, sep = ",")
+head(data)
+```
+
+Adding an ID variable:
+
+```{r}
+ID = paste("ID", 1:200, sep = "")
+data = as.data.frame(cbind(ID, data))
+head(data)
+```
+
+Name the variables:
+
+``` {r}
+colnames(data)[2:6] <- c("Daily Energy (vig)", "Daily enery (light)",
+                         "Sex", "BDNF", "Attitude")
+names(data)
+```
+
+Add labels to sex and BDNF-alpha
+
+``` {r}
+data$Sex <- as.factor(data$Sex)
+levels(data$Sex) = c("Female", "Male")
+data$BDNF <- as.factor(data$BDNF)
+levels(data$BDNF) = c("Not Present", "Present")
+head(data)
+```
+
+Descriptives:
+
+``` {r}
+library(psych)
+descript = describe(data)
+descript_out = descript[ , c(2, 3)]
+```
+
+The table above has some values for central tendency that are not optimal for some variables. So we want to tidy this. **Note**: this is really just an R-skills questions, we would not want to present a table like this in a paper.
+
+``` {r}
+# Empty the cells for the inappropriate mean estimates
+descript_out[1, 2] = NA
+descript_out[4, 2] = NA
+descript_out[5, 2] = NA
+descript_out
+```
+
+We would likely just want to present the frequencies for sex and BDNF so we could just save the output from `table()`:
+
+``` {r}
+sex_freq = table(data$Sex)
+BDNF_freq = table(data$BDNF)
+sex_freq
+BDNF_freq
+```
+
+For the plots I provide a single code to produce the 2x2 single figure. If you want to check any individual plot, you can look at this aspect of the code.
+
+``` {r}
+par(mfrow = c(2, 2))
+
+plot(as.factor(data$Attitude), main = "Attitude to Exercise",
+     xlab = "Attitude Rating", 
+     ylab = "Frequency", col = "lightblue")
+
+plot(density(data[ , 2]), main = "Daily Energy Expenditure (Vigorous)", xlab = "")
+
+plot(data[ , 2], data[ , 3], 
+     main = "Correlation between Vigorous and \nLight Daily Energy Expenditure", 
+     xlab = "Vigorous", ylab = "Light", pch = 15, col = "red")
+
+plot(data[ , 4], data[ , 5],
+     main = "Relative Frequencies of BDNF \nin Males and Females", 
+     xlab = "Sex", ylab = "BDNF")
+```
+
+The final plot asked for was the comparison of densities. Code for this plot would look something like:
+
+``` {r echo = FALSE, results = FALSE}
+library(sm)
+```
+
+```{r}
+sm.density.compare(data[ , 2], data[ , 4], col = c("blue", "red"), lty = c(1, 2))
+legend("topleft", levels(data[ , 4]), lty = c(1, 2), col = c("blue", "red"))
+```
+
+Any combination of these 5 plots in a single figure is appropriate.

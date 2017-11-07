@@ -1,0 +1,14 @@
+---
+title: "Lab 8"
+author: "Multivariate Statistics with R"
+output: pdf_document
+urlcolor: blue
+---
+
+```{r global_options, include = FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, 
+           fig.width = 6, fig.height = 4)
+solution = F
+```
+```{r child = "Lab_8_body_text.Rmd"}
+```

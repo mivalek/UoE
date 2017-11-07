@@ -1,0 +1,24 @@
+digraph G {
+
+	# Latents
+
+	# Manifests
+	blood [shape = square];
+	sweat [shape = square];
+	tears [shape = square];
+
+	#Variances/residuals
+	blood -> blood[label="35.19", dir=both, headport=s, tailport=s];
+	sweat -> sweat[label="14878.37", dir=both, headport=s, tailport=s];
+	tears -> tears[label="0.93", dir=both, headport=s, tailport=s];
+
+
+	# Single arrow paths
+
+	# Covariances
+
+	{rank=min ; };
+	{rank=same; blood sweat tears};
+
+
+}

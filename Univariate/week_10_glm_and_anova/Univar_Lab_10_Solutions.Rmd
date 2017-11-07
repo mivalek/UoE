@@ -1,0 +1,12 @@
+---
+title: "Solution to Lab 10"
+author: "Univariate Statistics with R"
+output: pdf_document
+---
+
+```{r global_options, include = FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, 
+           fig.width = 6, fig.height = 4)
+```
+```{r child = c("Lab_10_body_text.Rmd", "Lab_10_example.Rmd")}
+```

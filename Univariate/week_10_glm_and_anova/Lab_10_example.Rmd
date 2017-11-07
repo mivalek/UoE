@@ -1,0 +1,135 @@
+
+```{r, include = F}
+size <- 412
+```
+
+# An Example Analysis
+*(N.B., this is not a 'correct' answer, just a sensible one!)*
+
+Start by loading the data and examining it...
+``` {r}
+fox <- read.csv('fox.csv')
+summary(fox)
+```
+
+Most aspects look quite sensible; there are `r size`\ rows, as promised, for example. However, there is **at least** one value of $-999$ in `spectrum` (likely indicates missing data) and also some 0s in `prohunt` (coding error perhaps as we know `prohunt` should be on the scale 1-7). Let's fix this, and record how many datapoints have been removed (this might go into a writeup)
+
+``` {r}
+fox$spectrum[fox$spectrum == -999] <- NA
+fox$prohunt[fox$prohunt == 0] <- NA
+# complete.cases() might be new. Obviously there are other ways of doing it.
+# The "!" means "not"
+sum(!complete.cases(fox))
+# alternative
+sum(is.na(fox$prohunt))
+# etc.
+```
+
+Probably the next thing I would do is do a scatterplot of the data, to get the 'lay of the land'. `spectrum` makes a good $x$-axis variable. Two plot commands are below: The first, I did just to see what was going on. In the second, I used colour and shape to try and work out what was happening (note the trick of using `col = as.numeric(home)`; the values will be `c(1, 2, 3)`, and as long as those map onto different colours, I'm good to go). You can see the output in fig.\ \ref{fig:1}
+
+``` {r, eval = F}
+# Produces figure 1
+par(mfrow = c(1, 2)) # set two columns, 1 row
+with(fox, plot(spectrum, prohunt))
+# second plot, this time with colour (for levels of "home")
+# and shape (for "non-followup people")
+with(fox, plot(spectrum, prohunt, col = as.numeric(home),
+               pch = ifelse(followup=='Y', 2, 4)))
+```
+
+\begin{figure}[h!]
+\centering{\includegraphics[width = .8\linewidth]{img/auto-ans3-1}}
+\caption{Two scatterplots of `fox`; the second is coloured by `home` (black = country, red = suburban, green = urban) and shaped by whether participants want to participate in the followup (cross = no).}\label{fig:1}
+\end{figure}
+
+``` {r, eval = F}
+# A ggplot alternative for exploring this (produces figure 2):
+
+library(ggplot2)
+spec_pro <- ggplot(data = fox, aes(x = spectrum, y = prohunt, colour = followup))
+spec_pro + geom_point() + theme_bw() + facet_grid(. ~ home)
+```
+
+\begin{figure}[h!]
+\centering{\includegraphics[width = .8\linewidth]{img/auto-ggplot_ex-1}}
+\caption{A ggplot alternative to exploring the role of `home` on the relationship between `spectrum` and `prohunt` (also considering `followup`)}\label{fig:2}
+\end{figure}
+
+\newpage
+
+OK, there's something weird about the no-followup guys. They all seem to be left-wing. Can I show that `spectrum` predicts whether you want to follow up? Remember this is a *logit* model.
+
+``` {r}
+model <- glm(followup ~ spectrum, data = fox, family = binomial)
+# the test below shows that knowing about spectrum improves model fit
+anova(model, test = 'Chisq')
+# and the summary here shows that political spectrum is important
+summary(model)
+```
+
+We can summarise the model by saying that for each point to the right on `spectrum`, you're $e^{`r round(coef(model)[2], 2)`} = `r round(exp(coef(model)[2]), 2)`$ times more likely to agree to a followup study. Left-wingers don't seem keen at all!
+
+Here's how to draw a graph showing the model of the probability of accepting a followup depending on `spectrum` (output in fig.\ \ref{fig:3}).
+Note, it requires a bit of web-searching to find out about the `na.action = na.exclude` argument to `glm()` (and `lm()`). The search term I used was ``R include NAs in fitted()''.
+
+``` {r}
+# Produces figure 3
+model <- glm(followup ~ spectrum, data = fox, family = binomial, na.action = na.exclude)
+```
+``` {r, eval = F}
+with(fox, plot(fitted(model)[order(spectrum)] ~ spectrum[order(spectrum)],
+               type = 'l', xlab = 'spectrum', ylab = 'p(followup)'))
+```
+\begin{figure}[h!]
+\centering{\includegraphics[width = .5\linewidth]{img/auto-anssup1-1}}
+\caption{Probability of allowing a followup as a function of `spectrum`: model fit.}\label{fig:3}
+\end{figure}
+
+## The main analysis
+
+Regardless of whether we decided to run the binomial model or not, it's clear that these non-followup people are odd -- they seem to be behaving differently to the rest of the population. I'd be tempted to take them out of the data and build a model without them. Note that the scatterplot makes it pretty obvious that there'll be some kind of interaction, so:
+``` {r}
+# note the "subset" setting within "lm()" -- the lazy person's way!
+model <- lm(prohunt ~ spectrum*home, data = fox, subset = followup == 'Y')
+# this is equivalent:
+fox <- subset(fox, followup == 'Y')
+model <- lm(prohunt ~ spectrum * home, data = fox)
+anova(model)
+# shows that each term improves the model
+summary(model)
+```
+
+All the coefficients are significant in this model (whoops), and can be read top-to-bottom as follows:
+
+#.  people of middling political persuasion who live in the country, (`spectrum` = `0` and `home` = `country` at `(Intercept)`) have an attitude of `r round(coef(model)[1], 2)`
+
+#.  \label{r} for each additional `spectrum` point, that attitude goes up by `r round(coef(model)[2], 2)`, for people in the country
+#.  \label{a} people in suburban homes are less approving of foxhunting by `r round(coef(model)[3], 2)`
+
+#.  \label{b} people in urban homes are less approving of foxhunting by `r round(coef(model)[4], 2)`
+
+    * points \ref{a}\ and \ref{b} hold for people at zero (intercept) on the political spectrum, but
+
+#.  for suburban people the rise in \ref{r} is reduced: actual rise $=`r round(coef(model)[2], 2)`+`r round(coef(model)[5], 2)`=`r round(coef(model)[2]+coef(model)[5], 2)`$
+
+#.  similarly, for urban people, the actual rise per point on the spectrum $=`r round(coef(model)[2], 2)`+`r round(coef(model)[6], 2)`=`r round(coef(model)[2]+coef(model)[6], 2)`$, or practically zero.
+
+So we can conclude that you need to live in the country and to be increasingly right-wing to have a positive attitude towards fox hunting.
+
+## Other stuff you could do
+You could re-run the analysis above using **orthogonal coding**, to compare townies (urban and suburban) to country-dwellers, and then different types of townie to each other. That would look something like this:
+
+``` {r}
+contrasts(fox$home) <- cbind(CvSU = c(-2, 1, 1) / 3, SvU = c(0, -1, 1) / 2)
+
+# we've already removed the no-followup guys
+model <- lm(prohunt ~ spectrum*home, data = fox)
+
+# anova(model) will be the same
+
+summary(model)
+```
+
+This model shows that townie types (urban and suburban) are less likely to have positive attitudes to fox-hunting than country-dwellers (line 3); and that it's only the townies' attitudes are less affected by position on the political spectrum, although there's no difference between urbanites and suburbanites (lines 5 and 6).
+
+This last regression model may make the *most* sense of the data, such as it is, but, as long as you've explained why you've done what you've done, and as long as what you've done is reasonable, you've done a good job.

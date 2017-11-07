@@ -1,0 +1,479 @@
+```{r, include = F}
+t <- q <- 1 # Task counter
+qu <- function(x = q) {
+  q <<- x + 1
+  return(paste0("**Question ", x, ": **"))
+}
+ex <- function(x = t) {
+  t <<- x + 1
+  return(paste0("**Exercise ", x, ": **"))
+}
+```
+
+\newif\ifsol
+\sol`r ifelse(solution, "true", "false")`
+
+```{r, echo = F}
+# load libraries
+# library(reshape) # sufficient to use the 'reshape' function from the buil-in 'stats' package
+library(lme4)
+library(arm)
+```
+
+packages needed: `lme4`, `arm`
+
+# Complete pooling and no pooling models
+
+Multilevel modelling can be thought of as a method for compromising between two extremes: *complete pooling* and *no pooling* (Gelman & Hill, 2007, Chapter 12). *Pooling* refers to how different aspects of the data are combined together to estimate a particular parameter of interest (such as how vocabulary scores increase with grade level). To work with an example, read in the vocabulary data that were introduced last week and transform it to long format.
+
+<!-- extra line pbreak -->
+&nbsp;
+
+```{r, include = solution}
+### ANSWER ###
+
+vocab <- read.table("vocabulary.txt", header = T)
+vocab.long <- reshape(vocab, varying = names(vocab)[3:6], timevar = "Grade", direction = "long")
+```
+
+&nbsp;
+We implement a transformation of `Grade` to shift the intercept to school year 8, which was the first year of vocabulary measurement. Practically, we subtract 8 from all values of the `Grade` variable. You will learn more about such transformations in lecture 4.
+
+&nbsp;
+
+```{r}
+# transformation of grade: grade 8 = 0
+vocab.long$Grade <- vocab.long$Grade - min(vocab.long$Grade)
+```
+
+## Complete pooling
+
+The group indicator and/or categorical predictor ($e.g.,$ `Subject`) is excluded from the model. All the data are treated as independent, ignoring betweensubject variation. Predicting vocabulary score from `Grade` and `Grade`$^2$, we have,[^1]
+
+[^1]: Recall in the formula syntax, `I()` functions to keep arithmetic operators that we want to perform on the inputs (here we are squaring Grade) from interfering with the `+` and `*` as used in the formula.
+
+```{r}
+vocab.pool <- lm(Vocab ~ 1 + Grade + I(Grade^2), data = vocab.long)
+summary(vocab.pool)$coefficients[ , 1:2]
+
+# summary(vocab.pool)$coefficients extracts the estimates for regression coefficients
+# [ , 1:2] restricts the information to the estimates and their standard errors,
+# dropping the t and p values
+```
+
+## No pooling
+
+Separate models are fit within each group and/or within each level of the categorical predictor. Thus, a separate model is fit for each subject but no information is shared when making those estimates.
+
+```{r}
+vocab.nopool <- lm(Vocab ~ 1 + Grade + I(Grade^2) + as.factor(Subject), data = vocab.long)
+head(summary(vocab.nopool)$coefficients[ , 1:2])
+```
+
+R automatically dummy codes factors, so here `lm` has created 63 dummy-coded variables that, when fit, show how much above or below (intercept) subjects 2-64 are compared to subject 1, who acts as the reference group. While this gives us reasonable estimates, the model is not efficient because each of these predictors is treated as if they were providing completely independent information about the
+outcome.
+
+# Multilevel models as partial pooling models
+
+Partial pooling joins the measurements of each subject together in determining how much the subjects differ from each other. This is what multilevel models (AKA linear mixed-effects models) do.
+
+## The `lmer()` function
+
+We use the `lmer()` function for fitting \underline{l}inear \underline{m}ixed-\underline{e}ffects model in \underline{\texttt{R}}. It comes from the `lme4` package. When working with `lmer()`, it may be useful to also load the `arm` package[^2], as it contains a few convenience functions ($e.g.,$ `display`, `se.fixef`, `se.ranef`).
+
+[^2]: `arm` is the companion `R` package to Gelman and Hill (2007), which is referred to as the "ARM book".
+
+```{r, eval = F}
+install.packages("arm")
+install.packages("lme4")
+library(arm)
+library(lme4)
+```
+
+Here, we model the vocabulary data by specifying model 2 from the lecture -- a quadratic model with random intercept. In particular, we specify a separate intercept for each subject by adding `(1 | Subject)` to the model formula.
+
+```{r}
+vocab.M1 <- lmer(Vocab ~ 1 + Grade + I(Grade^2) + (1 | Subject), data = vocab.long)
+```
+
+## Extracting information from the fitted model
+
+The estimates of the *fixed-effects* parameters (population parameters) can be extracted from the fitted model object in several ways. First, they can be read off (with their standard errors) from the output provided by the generic summary function. Second, they can be read off from the output provided by the display function from the arm package -- look for the `coef.est` and `coef.se` columns. Third, the estimates of the fixed-effects parameters can be extracted directly using the `fixef()` function from the `lme4` package, and their standard errors using the `se.fixef()` function from the `arm` package. In a similar manner, information on the random effects is provided by passing the fitted model object to the `summary()` (look for "Variance" and "Std.Dev." under "Random effects") or `display()` (look for "Std.Dev." under "Error terms"). The actual random effects can be extracted with the `ranef()` function from the `lme4` package and their standard error with the `se.ranef()` function from the `arm` package.
+
+```{r}
+summary(vocab.M1) # lme4 package
+display(vocab.M1) # arm package
+
+fixef(vocab.M1) # lme4 package
+se.fixef(vocab.M1) # arm package
+```
+
+```{r, include = F}
+options(max.print = 10)
+```
+
+```{r}
+ranef(vocab.M1) # lme4 package
+se.ranef(vocab.M1) # arm package
+```
+
+&nbsp;
+
+`r qu()`How do the estimates, `ranef(vocab.M1)`, and the standard errors, `se.ranef(vocab.M1)`, for subject intercepts from the partial pooling (`lme`) model compare with those from the no-pooling model, `summary(vocab.nopool)$coefficients[ , 1:2]`?
+
+&nbsp;
+
+```{r, include = solution}
+### ANSWER ###
+
+# Standard errors of subject intercepts are
+# smaller in the partial pooling (lme) model.
+se.ranef(vocab.M1)
+summary(vocab.nopool)$coefficients[ , 1:2]
+```
+
+```{r, include = F}
+options(max.print = 99999)
+```
+
+# Arthritis example revisited
+
+Let's revisit the arthritis example from the lecture. In this study, 67 patients (29 men, 38 women) were treated for rheumatoid arthritis (Patel, 1991). To examine the effectiveness of the treatment, patients' *grip strength* was measured on 3 occasions. The plot below (see also lecture 2, slides 20-21) shows the individual functions, separately for male and female patients. The mean vector, the average performance for each group (bold black line), tracks "typical performance". Note that the variability of the patients' performance during the three occasions of the experiment, which is somewhat greater for the men than the women, is a salient feature of the data.
+
+&nbsp;
+
+```{r, echo = F}
+arth <- read.table("arthritis.txt", header = TRUE)
+
+arth.long <- reshape(
+  arth, idvar = c("Subject"), varying = names(arth)[3:5],
+  timevar = "time", direction = "long", times = 0:2, v.names = 'y')
+
+library(ggplot2)
+library(RColorBrewer)
+library(dplyr)
+
+
+dd <- as.data.frame(
+  arth.long %>% group_by(Gender, time) %>% summarise(y = mean(y, na.rm = T)))
+
+plot_colors <- colorRampPalette(brewer.pal(8, "Set1"))(67)
+plot_colors <- plot_colors[sample(1:length(plot_colors), 67, replace = F)]
+ggplot(data = arth.long, aes(as.factor(time), y)) +
+  geom_line(aes(group = Subject, color = as.factor(Subject))) +
+  geom_point(aes(group = Subject, color = as.factor(Subject))) +
+  geom_line(data = dd, aes(group = Gender), size = 1.5) + facet_wrap(~ Gender) + 
+  scale_color_manual(values = plot_colors) +
+  coord_cartesian(xlim = c(1.5,2.5)) +
+  xlab("Assessment occasion") + ylab("Grip strength") +
+  theme_bw() + theme(legend.position="none")
+```
+
+The data file (arthritis.txt) is available on LEARN. Download the file, read the file into `R` and store it in an object named `arth`. Then convert `arth` into long format, storing it in `arth.long`.
+
+```{r, include = solution, eval = F}
+### ANSWER ###
+
+arth <- read.table("arthritis.txt", header = TRUE)
+
+arth.long <- reshape(
+  arth, idvar = c("Subject"), varying = names(arth)[3:5],
+  timevar = "time", direction = "long", times = 0:2, v.names = 'y')
+```
+
+&nbsp;
+
+In the lecture, calculations focused on the 29 men. Let's create a subset of `art.long` called `men` with only data from, well, men.
+
+```{r, include = solution}
+### ANSWER ###
+
+men <- arth.long[arth.long$Gender == "Men", ]
+
+summary(men)
+```
+
+`summary(men)` tells us that there are 3 missing data points, coded as `NA`, in the outcome variable `y`. There are only three measurement points. A linear model, where we fit a regression line to these three data points, is about the most complex form the data can handle. In the lecture, we specified a linear mixed-effects model with two \textcolor{red}{fixed effects} (intercept, slope) and 2 \textcolor{blue}{random effects} (intercept, slope). The model is a *random coefficient model* because it represents the special case that each predictor has both a fixed and random term.
+
+&nbsp;
+
+We also need to tell `lmer()` what to do with the 3 missing values in the data. Here, we set the argument `na.action` to `na.exclude`. This omits the `NA`s for the analysis but predictions are padded to the correct length by inserting `NA`s for the omitted cases.
+
+`m1 <- lmer(y ~ `\textcolor{red}{\texttt{ 1 + time }}` + (`\textcolor{blue}{\texttt{1 + time }}` | Subject), data = men, na.action = na.exclude)`
+
+```{r, echo = F}
+m1 <- lmer(y ~ 1 + time + (1 + time | Subject), data = men, na.action = na.exclude)
+```
+
+`m1` is an object of class `"mer"` (mixed-effects representation). There are many extractor functions that can be applied to such objects.
+
+&nbsp;
+
+`r qu()`Retrieve the two regression coefficients that represent the population parameters (fixed effects). Write the regression equation for the population and describe the modelled relationship.
+
+```{r, include = solution}
+### ANSWER ###
+
+print(fixef(m1))
+print(summary(m1))
+```
+
+\ifsol
+
+&nbsp;
+
+The intercept is 209.4. The slope is negative at $-3.35$:
+
+$$y = 209.4 - 3.37x$$
+
+That is, male patients lost grip strength at the rate of $-3.37$ units per occasion (measurement point).
+
+\fi
+
+&nbsp;
+
+## `R`: `coef() = fixef() + ranef()` and/or `ranef() = coef() - fixef()`
+
+It is important to understand the relationship between *fixed effects*, *random effects*, and *individual regression coefficients*. In `R`, the population parameters (or fixed effects) are obtained by using the function `fixef()`. `ranef()` extracts the random effects from a fitted model object, and `coef()` the individual regression coefficients. The **individual regression coefficients** (intercept and slope) for a given subject (see below subject 12) are calculated as the **sum of the fixed effects and random effects**.
+
+$$\begin{aligned}
+\hat\beta_{12} &= \hat\beta + \hat{b}_{12} \\
+&= \begin{pmatrix}209.434\\ -3.35\end{pmatrix} + \begin{pmatrix}8.997\\ -0.46\end{pmatrix} \\
+&= \begin{pmatrix}218.43\\ -3.81\end{pmatrix}
+\end{aligned}$$
+
+We can check this with `R` code:
+
+```{r}
+# individual regression coefficients for subject 12
+(coef_12 <- coef(m1)$Subject[12, ])
+# fixed effects for m1
+(fix <- fixef(m1))
+# random effects for subject 12
+(ref_12 <- ranef(m1)$Subject[12, ])
+
+coef_12 == fix + ref_12
+```
+
+&nbsp;
+
+`r qu()`Apply `coef()`, `fixef()`, and `ranef()` to our fitted model object `m1`. For subject 1, retrieve the individual regression coefficients and write the regression equation. How well did this subject respond to the medical treatment?
+```{r, echo = F}
+
+coef1 <- round(coef(m1)$Subject[1, ], 3)
+ref1 <- round(ranef(m1)$Subject[1, ], 3)
+fix <- round(fix, 3)
+```
+
+```{r, include = solution}
+### ANSWER ###
+
+# intercept for subject 1: 
+coef(m1)$Subject[1,1]
+# slope for subject 1: 
+coef(m1)$Subject[1,2]
+```
+
+\ifsol
+
+$$
+\begin{aligned}
+y_{1j} &= (\beta_{10} + b_{10}) + (\beta_{21} + b_{11})x_j + \epsilon_{1j}\\
+&= ( `r fix[1]` + `r ref1[1]` ) + ( `r fix[2]` + `r ref1[2]` )x_j + \epsilon_{1j}\\
+&= `r coef1[1]` + `r coef1[2]` x_j + \epsilon_{1j}
+\end{aligned}
+$$
+
+\fi
+
+## Model parameters: variance-covariance matrices
+
+For `lmer` model `m1`, a total of six parameters need to be estimated (see slide 23, lecture 2):
+
+#. the population parameters (fixed effects), intercept and slope (\textbeta)
+
+#. the covariance matrix of the individual coefficients (\textPhi)
+
+#. the covariance matrix of the residuals (\textlambda)
+
+In `R`, the variance-covariance matrix for the individual coefficients (\textphi) is estimated by `lmer()`. It can be extracted from the fitted model object with the `VarCorr()` function. In the arthritis example, we modelled a linear relationship with two random effects per subject -- an intercept and a slope. Therefore, the variance-covariance matrix for the individual coefficients has three unique elements (see slides 23 and 30, lecture 2). The diagonal elements are the variances of the individual coefficients ($\beta_{ij}$). Are the individual differences large or small? The off-diagonal element describes the extent to which pairs of coefficients covary or correlate. For two parameters you only get
+one such pairing. It describes the relationship between individual intercepts and slopes.
+
+&nbsp;
+
+`r qu()`Use the VarCorr function to retrieve the estimates for the covariance matrix of the individual coefficients. You should be able to reproduce the numbers from the lecture slides. Conceptually, what do the diagonal elements and the off-diagonal element mean?
+
+Tip:
+
+#. By default, VarCorr provides standard deviations rather than variance. The help file tells you how to change it (it's well hidden); alternatively, remind yourself of the difference between variance and standard deviation.
+
+#. VarCorr provides the correlation while the slide(s) give you the covariance, but they are closely related (look it up online)
+
+Refresher:
+
+$Var(x) = std.dev(x)^2$
+
+$r = \frac{cov(x,y)}{std.dev(x) \times std.dev(y)} \implies cov(x,y) = r_{x, y} \times std.dev(x) \times std.dev(y)$
+
+&nbsp;
+
+```{r, include = solution}
+### ANSWER ###
+
+print(VarCorr(m1))
+```
+
+\ifsol
+
+Variance-covariance matrix \textPhi:
+
+- diagonal elements:
+
+  $$
+  \begin{aligned}
+  Var(intercept) &= std.dev(intercept)^2\\ &= 49.701^2\\&= 2470.189\\
+  Var(slope) &= std.dev(slope)^2\\ &= 20.487^2\\ &= 419.7172
+  \end{aligned}
+  $$
+
+- off-diagonal element:
+
+  $$
+  \begin{aligned}
+  cov(intercept, slope) &= r_{(intercept, slope)} \times std.dev(intercept) \times std.dev(slope) \\
+  &= -0.123 \times 49.701 \times 20.487\\ &= -125.2416
+  \end{aligned}
+  $$
+
+  *(These are the values from lecture slide 23.)*
+
+&nbsp;
+
+`VarCorr()` also provides the variances directly, but this behaviour is hidden in the help document:
+
+> *Details*
+> 
+> The print method for `VarCorr.merMod` objects has optional arguments [...] `comp`: the latter is a character vector with any combination of "Variance" and "Std.Dev.", to specify whether variances, standard deviations, or both should be printed.
+
+&nbsp;
+
+\fi
+
+```{r, include = solution}
+print(VarCorr(m1), comp = c("Std.Dev", "Variance"))
+```
+
+&nbsp;
+&nbsp;
+
+`r qu()`What's the variance of the residuals in model m1?
+
+```{r, include = solution}
+### ANSWER ###
+print(summary(m1))
+# - look under Residual / Variance
+
+# OR
+attr(VarCorr(m1), "sc")^2
+```
+
+&nbsp;
+
+`r qu()`Show graphically that the residuals follow a normal distribution, centred at a mean of zero. Model residuals can be extracted with the generic function `resid()`.
+
+```{r, include = solution}
+### ANSWER ###
+
+hist(resid(m1))
+```
+
+# Exercises
+
+Using the vocabulary data, the goal of the exercises is to practise how to translate model equations into `R` implementations using `lmer()`. We start by specifying the simplest possible model, a model with a \textcolor{red}{fixed effect} for the intercept, and a \textcolor{blue}{random effect} for the (by-subject) intercept.
+
+model equation:
+
+$y_{ij} = (\textcolor{red}{\beta_0}+\textcolor{blue}{b_{i0}}) + \epsilon_{ij}$
+
+&nbsp;
+
+implementation in R:
+
+`fm2 <- lmer(Vocab ~ `\textcolor{red}{\texttt{ 1 }}` + (`\textcolor{blue}{\texttt{1 }}` | Subject), data = vocab.long)`
+
+*(`fm1` stands for "fitted model 1")*
+
+&nbsp;
+
+Note that you always have to add at least one random effect; in our example `(1 | subject)` fits a separate intercept for each subject. Your task is to extend this model step by step by first adding more fixed effects (Exercises 1 and 2) and random effects (Exercises 3-5). The final model is the full model introduced in lecture 2. Exercise 1 Specify `fm2` with fixed effects for both intercept and slope.
+
+&nbsp;
+
+`r ex()`Specify `fm2` with fixed effects for both intercept and slope.
+
+$y_{ij} = (\textcolor{red}{\beta_0}+\textcolor{blue}{b_{i0}}) + \textcolor{red}{\beta_1}x_j + \epsilon_{ij}$
+
+
+```{r, include = solution, eval = F}
+### ANSWER ###
+
+fm2 <- lmer(Vocab ~ 1 + Grade + (1 | Subject), data = vocab.long)
+```
+
+&nbsp;
+
+`r ex()`Specify `fm3` with fixed effects for intercept, slope, and quadratic term.
+
+$y_{ij} = (\textcolor{red}{\beta_0}+\textcolor{blue}{b_{i0}}) + \textcolor{red}{\beta_1}x_j + \textcolor{red}{\beta_2}x_j^2 + \epsilon_{ij}$
+
+**Tip: **You have to include a power term, grade squared. You have to use the `I()` operator, which forces computation of its argument before evaluation of the formula.
+
+```{r, include = solution, eval = F}
+### ANSWER ###
+
+fm3 <- lmer(Vocab ~ 1 + Grade + I(Grade^2) + (1 | Subject), data = vocab.long)
+```
+
+&nbsp;
+
+`r ex()`Specify fm4 with a random effect for slope (only):
+
+$y_{ij} = \textcolor{red}{\beta_0} + (\textcolor{red}{\beta_1}+\textcolor{blue}{b_{i1}})x_j + \textcolor{red}{\beta_2}x_j^2 + \epsilon_{ij}$
+
+```{r, include = solution, eval = F}
+### ANSWER ###
+
+# 0 to suppress the intercept!
+fm4 <- lmer(Vocab ~ 1 + Grade + I(Grade^2) + (0 + Grade | Subject), data = vocab.long)
+```
+
+`r ex()`Specify fm5 with random effects for intercept and slope.
+
+```{r, include = solution, eval = F}
+### ANSWER ###
+
+fm5 <- lmer(Vocab ~ 1 + Grade + I(Grade^2) + (1 + Grade | Subject), data = vocab.long)
+```
+
+&nbsp;
+
+`r ex()`Specify fm6 with random effects for intercept, slope, and quadratic term.
+
+$y_{ij} = (\textcolor{red}{\beta_0} + \textcolor{blue}{b_{i0}}) + (\textcolor{red}{\beta_1}x_j + \textcolor{blue}{b_{i1}}) + (\textcolor{red}{\beta_2} + \textcolor{blue}{b_{i2}})x_j^2 + \epsilon_{ij}$
+
+```{r, include = solution, eval = F}
+### ANSWER ###
+
+fm6 <- lmer(Vocab ~ 1 + Grade + I(Grade^2) + (1 + Grade + I(Grade^2) | Subject),
+            data = vocab.long)
+```
+
+## References
+
+Gelman, A. & Hill, J. (2007). *Data analysis using regression and multilevel/hierarchical models.*
+
+> New York: Cambridge University Press.
+
+Patel, H. I. (1991). Analysis of incomplete data from a clinical trial with repeated measurements.
+
+> *Biometrika, 78*(3), 609-619.

@@ -1,0 +1,488 @@
+
+```{r, include = F}
+t <- q <- 1 # Task counter
+task <- function(x = t) {
+  t <<- x + 1
+  q <<- 1
+  return(paste0("**Task ", x, ": **"))
+}
+qu <- function(reset = F, x = q, y = t - 1, sol = solution) {
+  q <<- ifelse(reset, 1, x + 1)
+  return(paste0(if(!sol) {"- "}, "**Question ", y, ".", x, ": **"))
+}
+library(paran)
+```
+
+\newif\ifsol
+\sol`r ifelse(solution, "true", "false")`
+
+This week's lab is the first in a five part block on latent variable models (factor analysis, path analysis, and structural equation modeling). For lots of useful info and links, visit Tim's [Multivariate Stats Course](http://tbates.github.io/Multivariate-Stats-Course) page. And now, let's get going!
+
+`r task()`Find and load the `bfi` dataset (in the `psych` package).
+
+``` {r, include = solution}
+### ANSWER ###
+
+library(psych) # bfi is autoloaded
+```
+
+`r qu()`what columns contain the Big-Five Inventory data?
+
+\ifsol
+
+> `### ANSWER ###`
+
+> Looking at `?bfi`, we can see that the BFI items are stored in columns `1:25`: `A1-5`, `C1-5`, `E1-5`, `N1-5`, and `O1-5` (for *Agreeableness*, *Conscientiousness*, *Extraversion*, *Neuroticism*, and *Opennness*).
+
+&nbsp;
+
+\fi
+
+`r task()`Find a package in `R` that does parallel analysis.
+
+`r qu()`What is it's name?
+
+\ifsol
+
+> `### ANSWER ###`
+
+> A cursory [*insert your favourite websearch engine*] search suggests package `paran`. Check out its [documentation](https://cran.r-project.org/web/packages/paran/paran.pdf).
+
+&nbsp;
+
+\fi
+
+`r qu()`What is the name of the function?
+
+\ifsol
+
+> `### ANSWER ###`
+
+> That would be the **only** function in the package, `paran()`.
+
+&nbsp;
+
+\fi
+
+`r task()`Read the function documentation (help file).
+
+``` {r, include = solution, eval = F}
+### ANSWER ###
+
+# let's first install and load the package
+install.packages("paran")
+library(paran)
+
+?paran
+```
+
+`r qu()`What parameters does this parallel analysis function take?
+
+\ifsol
+
+> `### ANSWER ###`
+
+> The help file lists quite a few. The main ones to focus on are `x`, `iterations`, and `graph`.
+
+&nbsp;
+
+\fi
+
+`r qu()`What do they do?
+
+\ifsol
+
+> `### ANSWER ###`
+
+- `x`: data to be factor analysed (and nothing but).
+
+- `iterations`: number of Monte Carlo datasets to be generated in order to get the chance-expected factor Eigenvalues (as discussed in this week's lecture, parallel analysis compares the empirical factor structure to one expected by chance in random ratasets with similar properties as the one analysed).
+
+- `graph`: Whether or not to display the scree plot (`FALSE` by default).
+
+&nbsp;
+
+\fi
+
+`r task()`Use the function to determine how many factors are in the `bfi` dataset.
+
+``` {r, include = solution, eval = F}
+### ANSWER ###
+
+paran(bfi)
+```
+
+\ifsol
+
+&nbsp;
+
+\fi
+
+`r qu()`Assuming that didn't work, what went wrong?
+
+\ifsol
+
+> `### ANSWER ###`
+
+> There are missing data (`NA` values) in the `bfi` dataset and `paran()` cannot handle those.
+
+&nbsp;
+
+\fi
+
+`r qu()`Does the parallel analysis function need to be given just the columns you need to analyse?
+
+``` {r, include = solution}
+### ANSWER ###
+
+#Yes, otherwise the results will be dodgy
+paran(bfi[complete.cases(bfi), ])
+```
+
+\ifsol
+
+&nbsp;
+
+\fi
+
+`r qu()`How many complete cases exist in these personality data?
+
+``` {r, include = solution}
+### ANSWER ###
+
+sum(complete.cases(bfi))
+```
+
+\ifsol
+
+&nbsp;
+
+\fi
+
+`r task()`Run the function on the appropriate subset of `bfi`.
+
+``` {r, include = solution}
+### ANSWER ###
+
+# first let's get the complete rows and the right columns
+df <- bfi[complete.cases(bfi), 1:25]
+# now let's run paran()
+paran(df)
+```
+
+\ifsol
+
+&nbsp;
+
+\fi
+
+`r qu()`How many factors exist in these personality data?
+
+\ifsol
+
+> `### ANSWER ###`
+
+> Five, as in The Big *Five* Inventory.
+
+&nbsp;
+
+\fi
+
+`r qu()`What is a scree plot and how do you plot it with this function?
+
+\ifsol
+
+> `### ANSWER ###`
+
+> A scree (a term borrowed from [geology](https://en.wikipedia.org/wiki/Scree)) plot shows the Eigenvalues of all factors in the data from the lasrgest to the smallest. (Before the analytical decision to extract a certain number of factors is made, there are always as many factors as there are columns/variables.)
+
+``` {r, include = solution}
+paran(df, graph = TRUE)
+```
+
+&nbsp;
+
+\fi
+
+`r task()`Find `R`'s built in factor analysis function.
+
+`r qu()`Which one is it?
+
+\ifsol
+
+> `### ANSWER ###`
+
+> `factanal()`
+
+&nbsp;
+
+\fi
+
+`r qu()`What parameters does this function need?
+
+\ifsol
+
+> `### ANSWER ###`
+
+> Again, looking at the function documentation (`?factanal`), we see that at the very least, it needs the data to be factor analysed (`x`) and the number of factors to extract (`factors`).
+
+&nbsp;
+
+\fi
+
+`r qu()`What are its options? Discuss.
+
+\ifsol
+
+> `### ANSWER ###`
+
+> You can specify if you want the function to give you factor `scores` and if so, which type (regression scores or Bartlett scores) and also what kind of `rotation` you would like the function to perform on the extracted factors (see lecture notes on what a factor rotation is).
+
+&nbsp;
+
+\fi
+
+`r task()`Run an fa, extracting the predicted number of factors from `paran()`.
+
+``` {r, include = solution}
+### ANSWER ###
+
+fa <- factanal(df, factors = 5)
+print(fa)
+```
+
+\ifsol
+
+&nbsp;
+
+\fi
+
+`r qu()`What does uniqueness mean?
+
+\ifsol
+
+> `### ANSWER ###`
+
+> It is the proportion of variance in the variable that is **NOT** captured by the extracted factors ($e.g.,$ uniqueness of .67 means that 67% of the item's variance is not expressed by the combination of the 5 extracted factors).
+
+&nbsp;
+
+\fi
+
+`r qu()`Are items fairly unique in general?
+
+\ifsol
+
+> `### ANSWER ###`
+
+> Yes, often well over half of their variance is unique. In fact, only six of the 25 items have uniqueness of less than .5.
+
+&nbsp;
+
+\fi
+
+`r qu()`Was what you ran by default oblique or orthogonal?
+
+\ifsol
+
+> `### ANSWER ###`
+
+> If you look at the function documentation you'll see that in the **Usage** section, rotation is set by default to `"varimax"`, which - as you learnt in the lecture - is an orthogonal rotation.
+
+&nbsp;
+
+\fi
+
+`r qu()`What is the name of an oblique rotation?
+
+\ifsol
+
+> `### ANSWER ###`
+
+> A quick Bing\footnote{Other search engines are available...\footnotemark} search will yield several oblique rotation methods but rather, uncharacteristically (and unhelpfully!), the help file doesn't tell you which ones are available in the `factanal()` function. If you dig a bit deeper, the Quick-R page on [factor analysis](https://www.statmethods.net/advstats/factor.html) will tell you that:
+
+> > The **rotation=** options include "varimax", "promax", and "none".
+
+> A good answer then is *promax*.
+
+\footnotetext{...and highly recommended!}
+
+&nbsp;
+
+\fi
+
+`r task()`Use the oblique rotation available in `factanal()`.
+
+``` {r, include = solution}
+### ANSWER ###
+
+fa <- factanal(df, factors = 5, rotation = "promax")
+print(fa)
+```
+
+\ifsol
+
+&nbsp;
+
+\fi
+
+`r qu()`Is the structure "simple" now?
+
+\ifsol
+
+> `### ANSWER ###`
+
+> Yes, as most items only have one sizeable factor loading.
+
+&nbsp;
+
+\fi
+
+`r qu()`What does that mean?
+
+\ifsol
+
+> `### ANSWER ###`
+
+> It means that the items that contribute to one of the factors, say Factor 5, do not contribute to other factors. However, bear in mind that due to the oblique rotation, Factor 5 is now correlated with other factors ($e.g.,$ .234 with Factor 1).
+
+&nbsp;
+
+\fi
+
+`r qu()`What are the factors? (Name them based on high loading items)
+
+\ifsol
+
+> `### ANSWER ###`
+
+- Factor 1 loads most highly on the *Neuroticism* items.
+
+- Factor 2 loads most highly on the *Extraversion* items.
+
+- Factor 3 loads most highly on the *Conscientiousness* items.
+
+- Factor 4 loads most highly on the *Agreeableness* items.
+
+- Factor 5 loads most highly on the *Openness* items.
+
+&nbsp;
+
+\fi
+
+`r qu()`What do the empty cells mean?
+
+\ifsol
+
+> `### ANSWER ###`
+
+> The print out hides small values (< .1).
+
+&nbsp;
+
+\fi
+
+`r task()`Try and alter how the result prints out. Let's say we want to see only loadings > .3 and we want the items sorted by factors that load on them.
+
+**Hint: **Look for the `print` method in the help file for `factanal()`.
+
+\ifsol
+
+> `### ANSWER ###`
+
+> The factor analysis object (`class(fa)` returns `[1] "factanal"`) has a special print method (documented under `?loadings`) that supports sorting and hiding small values.
+
+``` {r, include = solution}
+### ANSWER ###
+
+# for example
+print(fa, cutoff = .3, sort = TRUE)
+```
+
+&nbsp;
+
+\fi
+
+`r qu()`Are the factors independent?
+
+\ifsol
+
+> `### ANSWER ###`
+
+> No, they are weakly-to-moderately correlated.
+
+&nbsp;
+
+\fi
+
+`r qu()`What component of the printout tells us this?
+
+\ifsol
+
+> `### ANSWER ###`
+
+> That would be the "Factor Correlations" section of the printout.
+
+&nbsp;
+
+\fi
+
+`r task()`Create scores for each subject
+
+**Hint: **The factor analysis function has a `scores` parameter.
+
+``` {r, include = solution}
+### ANSWER ###
+
+fa <- factanal(df, factors = 5, scores = "Bartlett", data = df,
+               na.action = na.exclude)
+```
+
+\ifsol
+
+&nbsp;
+
+\fi
+
+`r task()`Add these to the dataset.
+
+**Hint: **Check the function documentation to find out where the scores are stored.
+
+``` {r, include = solution}
+### ANSWER ###
+
+df$f1= fa$scores[ , "Factor1"]
+```
+
+## Bravo!
+
+
+### Extra credit if you finish early
+
+#. Try doing all of this with IQ data set `Holzinger` from `psych`.
+
+#. Do an FA on some of your own data, or... anything else: practise creates skill.
+
+#. Play with the options to `paran()` and `factanal()`.
+
+
+### To prepare for next week's tutorials and lectures:
+
+#. Install the package `umx`.
+
+#. Read the `?umxRAM` help, and run one model from its help examples.
+
+#. **Advanced credit: **Try and re-run one of the factor analyses using `umxFactanal()`.
+
+&nbsp;
+
+
+Scientific as opposed to statistical Questions:
+
+#. Do you think personality has 5 or 6 major domains?
+
+#. Is the BFI data good?
+
+#. What would happen to the parallel analysis if we sampled facets better?
+
+#. What could go wrong if the data have a hierarchical structure like we know personality does?

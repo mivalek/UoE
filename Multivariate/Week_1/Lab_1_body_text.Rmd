@@ -1,0 +1,332 @@
+
+```{r, include = F}
+t <- 1 # Task counter
+task <- function(x = t) {
+  t <<- x + 1
+  return(paste0("**Task ", x, ": **"))
+}
+```
+
+This week's lab will focus on reshaping your data and breking it down using plots for better visualisation. Roll up your sleeves and let's get going!
+
+# `reshape()`
+
+Data do not always come in the form that we would like them to. For example, when collecting data for subjects in multiple waves, it is typical to enter the data with a single row for each participant. A separate column is then created for each wave of measurement. This is referred to as wide format. Many functions in `R` however, such as the `lmer()` function (which will be introduced next week) expect data to be in long format, where measures of the same variable only take up one column, there is an additional column representing time, and observations of each subject are spread across multiple rows. Take a look at the vocabulary data discussed in the lecture (download them from LEARN and save into your current `Rproject` folder):
+
+``` {r}
+# read in the vocab data
+Vocab <- read.table("vocabulary.txt", header = T)
+```
+They are currently in wide format:
+``` {r}
+head(Vocab)
+```
+
+Each row shows the vocabulary scores of each subject in grades 8-11, represented in the columns named `Vocab.8`,`Vocab.9`, `Vocab.10`, and `Vocab.11`. When reformatting data, it is helpful if the columns in the wide format are named `variable.time` because the command to reshape data can automatically handle this naming scheme, where variable is the name of what is being measured and time is a number representing time of measurement (this could be time 0, 1, 2..., wave 1, 2, 3..., year 2003, 2004, 2005..., $etc.$). For the vocabulary data, the variable would be `Vocab`.
+
+## Wide to long
+
+``` {r}
+# reshape data into long format
+Vocab.long <- reshape(Vocab, idvar=c('Subject'), varying = names(Vocab)[3:6],
+timevar = 'Grade', direction = 'long')
+```
+
+The function reshape takes several arguments:
+
+- `idvar` names the column(s) that uniquely identify each subject. Typically this is something like id. For the vocabulary data, this is the `Subject` column.
+
+- `varying` names the columns that represent repeated observations of the same subject. These should use the `variable.time` format and in our example they are the `Vocab.N` columns (columns 3-6 of the data).
+
+- `timevar` specifies what the new column representing time should be called. Here time is specified by grade, so `Grade` would make for a suitable name. The values in the newly created column will be all the numbers seen in the time part of the `variable.time` columns.
+
+- `direction` is either `"long"` or `"wide"` and tells `reshape()` in which direction to transform the data. For the vocabulary data, the direction is `"long"` because we want to transform it from wide format into long format.
+
+So let's see what we have here:
+
+``` {r}
+head(Vocab.long)
+```
+Notice that the *rows* of the dataframe are automatically renamed as `idvar.timevar`.
+
+`r task()`Check that the vocabulary scores of subjects 1 and 2 are the same in the wide and long formats.
+
+``` {r, include = solution}
+### ANSWER ###
+
+Vocab[Vocab$Subject %in% c(1,2), ] # only select lines for subjects 1 and 2
+
+# if you're unfamiliar with the very useful operator %in%,
+# you can check out the help file by typing ?`%in%` into console
+x <- Vocab.long[Vocab.long$Subject %in% c(1,2), ]
+x[order(x$Subject), ]
+
+# you can now inspect the scores visually, or if you want a more programatic
+# check, you can do something like
+y <- unlist(c(Vocab[Vocab$Subject == 1, grep("Vocab", names(Vocab))],
+Vocab[Vocab$Subject == 2, grep("Vocab", names(Vocab))]))
+all(x[order(x$Subject), "Vocab"] == y)
+
+# grep() gives you the indices of the elements of a vector that match the
+# specified pattern, in our case indices of names of columns of our Vocab
+# dataset that have the string "Vocab" in them
+grep("Vocab", names(Vocab))
+
+# next we select only the row for which Subject == 1 and only the columns
+# given to us by the grep() above
+Vocab[Vocab$Subject == 1, grep("Vocab", names(Vocab))]
+
+# then we put together this row and the row for Subject == 2
+c(Vocab[Vocab$Subject == 1, grep("Vocab", names(Vocab))],
+Vocab[Vocab$Subject == 2, grep("Vocab", names(Vocab))])
+
+# as you can see, this returns a list and so we unlist() it to turn it
+# into a vector and store it in y
+y <- unlist(c(Vocab[Vocab$Subject == 1, grep("Vocab", names(Vocab))],
+Vocab[Vocab$Subject == 2, grep("Vocab", names(Vocab))]))
+
+# finally, we take the x we created above, only extract the "Vocab" column,
+# make sure it's sorted by subject number and ask R if these two vectors
+# are all the same
+all(x[order(x$Subject), "Vocab"] == y)
+```
+
+The following three questions refer to some fertility data so a little background is in order: Countries have been going through a shift to lower fertility, referred to as the demographic transition. This change in fertility has come along with changes in economies and rising standards of living. However, is it possible that differences in climate explain differences in fertility? The data come from EarthTrends (now sadly defunct) and are in wide format. (again, get them from LEARN and put them in your current `Rproject` folder.)
+
+``` {r}
+Fert <- read.csv("fert-trends.csv")
+names(Fert)
+```
+
+Each row contains information about a country. The first 5 columns provide information that does not change over time:
+
+- `ISO`, `Country`: ISO code and country name,
+
+- `continent`, `latitude`: location of the country and distance from the equator,
+
+- `ecozone`: one of 6 ecozones that divide the world in terms of ecosystems and climate.
+
+The other columns denote repeated observations over time: `fertility.YYYY` (measured as average number
+of births per woman) and `log_gdp.YYYY` (natural logarithm of gross domestic product from 1960-2005 in five year intervals).
+
+`r task()`What is the name of a column or columns that uniquely identify each group (country) in the data?
+
+``` {r, include = solution}
+### ANSWER ###
+
+# 'ISO' or 'Country' (ISO is shorter so it's more convenient to use)
+# you can see it identifies groups uniquely as there is only one
+# instance of each value of ISO:
+table(Fert$ISO)
+```
+
+`r task()`What are the indices needed for `names(Fert)` that will return the names of columns that vary over time?
+
+``` {r, include = solution}
+### ANSWER ###
+
+# you are looking for variables with .YYYY in their names.
+# you can either look at the colkumn names
+names(Fert)
+
+# and see that the indices are 6:25
+# or, a bit more advanced, you can use grep() again along
+# with some pattern matching:
+grep("\\d{4}", names(Fert))
+# \\d stands for digit so \\d{4} means we are looking for
+# indices of those names of Fert that include a 4-digit number
+```
+
+`r task()`Use `reshape()` to transform the `Fert` data frame into long format; store the result in a new data frame `Fert.long`. The results should look like this:
+
+``` {r, echo = solution}
+### ANSWER ###
+
+Fert.long <- reshape(Fert, varying = names(Fert)[6:25], timevar = "year",
+idvar = c("ISO"), direction = "long")
+head(Fert.long)
+```
+
+## Long to wide
+
+Should you need it, reshape can also be used to convert wide data to long data (for example, if you are working with another piece of software, such as SPSS, that works well with wide data).
+
+``` {r, include = solution, eval = F}
+### ANSWER ###
+
+# Reshape the data back to wide format
+reshape(Vocab.long, idvar='Subject', v.names='Vocab', timevar='Grade', direction='wide')
+```
+
+- `idvar`: the column name that identifies each group (usually subject ID)
+
+- `v.names`: columns of variables that change over measurement occasion or condition.
+
+- `timevar`: name of column that tracks time or condition.
+
+Each value of the time variable will become a separate column in the wide format.
+
+
+# Plotting small multiples
+
+The principle of small multiples in plotting data says that lots of data can be digested if it is split into smaller pieces and then displayed side-by-side. Historically, these have also been referred to as *trellis* graphics. The `lattice` [^1] package implements trellis graphics in `R`.
+
+[^1]: see `?Lattice` in the help system for a high-level overview.
+
+``` {r}
+# load lattice (comes with base R, so no need to install it)
+library(lattice)
+```
+
+At its most basic, lattice works like the most of the generic plotting functions, accepting a formula for the variables to plot, but it also allows you to pass in a data frame.
+
+``` {r}
+# Plot vocabulary data
+vocab.grade.p <- xyplot(Vocab ~ Grade, data = Vocab.long, jitter.x = TRUE)
+print(vocab.grade.p)
+```
+
+Here, the points are jittered on the $x$-axis (`jitter.x = TRUE`) so that they do not overlap. The output of `lattice` functions (such as `xyplot()`) can also be saved. The plot of vocabulary versus grade is stored in the `vocab.grade.p` object and then displayed on screen using the `print()` function.
+
+
+`r task()`Use `xyplot` to plot all of the fertility data over time from the data frame that is in long format.
+
+``` {r, include = solution}
+### ANSWER ###
+
+xyplot(fertility ~ year, data = Fert.long, jitter.x = TRUE)
+```
+
+## Plotting data separately for each group
+
+Trellis graphics allow you to print the data for each group (such as subject or country in the vocabulary and fertility data) side-by-side. This is useful for getting an overall impression of the trends in your variables of interest while clustering each observation together in a way appropriate to how the data are organised. In `lattice`, this is achieved by putting a grouping factor at the end of the plot formula, separated by a pipe (`|`) character. For example, to plot vocabulary scores separately for each student, the formula is `Vocab ~ Grade | Subject`.
+
+``` {r}
+# create meaningful panel labels
+subs <- unique(Vocab$Subject)
+
+# retrieve subject numbers
+# duplicate column "Subject" and convert to factor
+Vocab.long$Subject_plot <- as.factor(Vocab.long$Subject)
+
+# Subject label
+levels(Vocab.long$Subject_plot) <- paste("Subj", subs, sep = " ")
+
+# Plot vocab data for each subject
+print(xyplot(Vocab ~ Grade | Subject_plot, data = Vocab.long))
+```
+
+Note that the graph has its origin in the **lower left corner**. By default, the order of the panels is from left to right across the rows, starting with the bottom row. If the conditioning variable is a factor (`Subject_plot`), strip labels are derived from factor levels. If there are too many groups, such as the 64 students in the vocabulary study, it is useful to only display a subset of the data. `xyplot()` has a `subset = argument` that takes a logical vector (of `TRUE/FALSE` values) that specifies which rows of the data to plot. Recall from last semester that a random sample of participant IDs to plot can be created using the `sample()` function. For example, to get 5 random numbers between 1 and 10 without replacement: 
+``` {r}
+sample(1:10, 5)
+```
+
+We can get a sample of 16 random subject IDs with:
+
+``` {r}
+vocab.subjects.sample <- sample(unique(Vocab$Subject), 16)
+vocab.subjects.sample
+```
+
+
+`r task()`What is the purpose of calling `unique(Vocab$Subject)`? Why would you not want to use `sample(Vocab$Subject, 16)`?
+
+``` {r, include = solution}
+### ANSWER ###
+
+# Vocab$Subject *might in principle* contain multiple records of each subject ID.
+# If this were the case, sampling from it might not give you 16 different IDs because
+# the sampling is random. Sampling from unique(Vocab$Subject) gets around the issue.
+```
+
+The random sample of subjects vocabulary scores can be created by getting the subset where `Subject %in% vocab.subjects` is `TRUE`:
+
+``` {r}
+# Plot a random selection of 16 subjects
+xyplot(Vocab ~ Grade | Subject_plot, data = Vocab.long,
+       subset = Subject %in% vocab.subjects.sample)
+```
+
+`r task()`Create a plot of fertility trends in a random subset 20 of countries.
+
+``` {r, include = solution}
+### ANSWER ###
+
+xyplot(fertility ~ year | Country, data = Fert.long,
+       subset = ISO %in% sample(unique(Fert$ISO), 20))
+```
+
+Plotting small multiples is also really powerful when the data can be grouped in multiple ways. For example, we can visualize fertility trends in each ecozone using the formula `fertility ~ year | ecozone`. At the same time, trends for individual countries are created using additional `groups =` and `type =` arguments. `type = 'a'` specifies average trend lines for each group.
+
+``` {r}
+# Plot fertility trends by ecozone
+xyplot(fertility ~ year | ecozone, groups=Country, data=Fert.long, type='a')
+```
+
+## Multiple panels
+
+The real power of lattice over the default `plot()` functions is its ability to overlay different aspects of the data on top of each other, such as plotting points and also placing fitted regression lines over them. Each different "view" of the data is referred to as a *panel*. Panels are implemented as a function of the form `function(x, y, ...) {}`, where `x` and `y` take on the values of the variables in the right- and lefthand sides of the formula used when calling `xyplot()`. The body of the function is made up of a series of commands that then actually plot the data. To start, we will make a plot that just recreates the scatterplot that `xyplot()` creates by default from the vocabulary data.
+
+``` {r}
+# xyplot using panels
+xyplot(Vocab ~ Grade | Subject_plot, data = Vocab.long,
+       subset = Subject %in% vocab.subjects.sample,
+       panel = function(x, y) {panel.xyplot(x, y)})
+```
+
+In this plot, the variables in the panel are automatically bound (`x` set equal to `Grade` and `y` takes on the value of `Vocab`). `panel.xyplot(x, y)` creates the scatter plot. Additional panels are added by putting other plotting commands inside the function passed to the `panel` argument. `panel.abline` takes the output from `lm()` (linear model) and plots a regression line for each group in the data.
+
+``` {r}
+# add regression lines
+xyplot(Vocab ~ Grade | Subject_plot, data = Vocab.long,
+       subset = Subject %in% vocab.subjects.sample,
+       panel = function(x, y) {
+         panel.xyplot(x, y)
+         panel.abline(reg = lm(y ~ x))
+       })
+```
+
+# Exercises
+
+The `reshape()` function can be useful even if you do not have longitudinal data. The way that the function treats time can be generalized to non-numerical measurement occasions, such as experimental condition. The data for the exercises come from a study (Nuthmann, 2013) that investigated from the size of the region around viewers' current point of gaze from which they can take in information when searching for objects in real-world scenes. Visual span size was estimated using the gaze-contingent moving window paradigm. The experiment featured six different window radii (W1 to W6) and a natural viewing control condition (W7). Download data from LEARN (visualspan-wide.csv).
+
+``` {r, echo = F}
+Span <- read.csv("visualspan-wide.csv")
+head(Span)
+```
+
+**Exercise 1: **Use `reshape()` to turn the visual span data into long format, with a column for condition (`window_size`) and a column that gives the reaction time.
+
+**Tip 1: **If `reshape()` throws an error, check additional arguments you can supply to the function ($e.g.,$ `sep`).
+
+**Tip 2: **Make sure that the column representing window size is a factor after you create the long-format data frame.
+
+
+``` {r, include = solution}
+### ANSWER ###
+
+# reshape
+Span.long <- reshape(data = Span, varying = names(Span)[2:8],
+                     v.names = "reaction_time", timevar = "window_size",
+                     idvar = "subject", direction = "long", sep = "_W")
+head(Span.long, 15)
+
+# Make windows size a factor
+Span.long$window_size_factor <- as.factor(Span.long$window_size)
+Span.long$subject <- as.factor(Span.long$subject)
+
+# paste0 [that's a zero] is a lazy way of saying paste(..., sep = "")
+levels(Span.long$subject) <- paste0("Subject_", unique(Span.long$subject))
+```
+
+**Exercise 2: **Create a plot that shows reaction times separately by participant.
+
+``` {r, include = solution}
+### ANSWER ###
+
+xyplot(reaction_time ~ window_size | subject, data = Span.long,
+       panel=function(x, y) {
+         panel.xyplot(x, y)
+         panel.abline(reg = lm(y ~ x))
+       })
+```

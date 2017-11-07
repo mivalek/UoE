@@ -1,0 +1,232 @@
+---
+title: "Lab 2"
+author: "Univariate Statistics with R"
+output: pdf_document
+---
+
+```{r global_options, include = FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE, eval = F, 
+           fig.width = 6, fig.height = 4)
+solution = F
+```
+```{r, include = F, eval = T}
+t <- 1 # Task counter
+task <- function(x = t) {
+  t <<- x + 1
+  return(paste0("**Task ", x, ": **"))
+}
+```
+
+The aims of this lab are to *familiarise you with Rstudio* and to *give you a taster of `R`*.
+
+# RStudio
+`r task()`Start RStudio. Select the *Project* dropdown (top right) and create a new empty project in a new directory called `Lab1` (see figure\ \ref{fig:c}).
+
+**Tip: **If you're not familiar with the idea of a directory (also sometimes called a folder), read Navarro, pp.\ 81ff., for an explanation. If you want the folder to be on your Desktop, create the project as a subdirectory of ~/Desktop (Mac) or ~/../Desktop (PC).
+
+**Pro tip: **Before you do anything else, go to the *View* menu and zoom in or out to your satisfaction. RStudio will remember this setting when it next starts.
+
+\begin{figure}[h!]
+\centering{\includegraphics[width = .5\linewidth]{img/rstudio1}}
+\caption{Creating a new project in a directory called \emph{Lab1}}\label{fig:c}
+\end{figure}
+
+`r task()`Select *File$\rightarrow$New File$\rightarrow$R Script*. In the window which appears, click on the disk icon just below *Untitled1* and save the (blank) script as `myscript.R`
+
+Your RStudio window should now look like the one in figure\ \ref{fig:d} (we've added some names to the various windows for ease of reference).
+
+## Console
+The 'heart of `R`' is the *Console* window. This is where instructions are sent to `R`, and its responses are given.
+
+`r task()`click on the console and type `1 + 1` (then hit Enter).
+
+You should see something like the following:
+``` {r baby, prompt = TRUE, eval = T}
+1 + 1
+``` 
+
+\begin{figure}[t]
+  \centering{\includegraphics[width = .7\linewidth]{img/rstudio2}}
+  \caption{\texttt{myscript.R} ready to edit}
+  \label{fig:d}
+\end{figure}
+
+The *Information* area (all of the right-hand side of Rstudio) shows you useful information about the state of your project. At the moment, you can see some relevant files in the bottom pane, and an empty `global environment' at the top.
+
+`r task()`click on the console and type `x <- 1+1` and see what happens. Look at the global environment, in particular. What do you think `<-` does?
+
+`r task()`hit ctrl-uparrow (funny-squiggly-uparrow on Mac). Highlight the `x <- 1+1` line and press Enter (this will rewrite it to the console).  Edit it so that it reads `x <- x + 1`. What will this do? Press Enter to confirm your guess.
+
+`r task()`try `y <- c(1, 2, 3, 4, 5)`. What happens? What kind of thing is `y`?
+
+`r task()`try `y <- y * 2`. Try and guess what will happen before you press Enter.
+
+`r task()`try `y` followed by Enter. This is one way you can get `R` to `print out' a value on the console.
+
+`r task()`try `plot(y, y+3)`. You should see a simple scatterplot appear bottom right, where information is shown. Note that RStudio has automatically *switched tab* to show the *Plots* tab, since you've just created a plot. Previously is showed the *Files* tab: You've already encountered the *Packages* tab last week.
+
+**Tip: **click on *Zoom* to see your plot at a larger scale.
+
+`r task()`type `?plot` into the Console. What happens?
+This is the generic way of getting help on any function (such as `plot()`). `R` help can range from the very useful to the quite esoteric; once you're familiar with `R`, the help gets more useful. In the meantime, the Web is often your friend.
+
+*The next exercise is a little harder:*  Imagine you like your scatterplot but you don't like the open circles it uses to mark each point. Instead, you want to use filled squares.
+
+`r task()`open a web browser, and go to <www.rseek.org>. Search for `plot change points`. Using the links returned, see if you can repeat the `plot` in Task\ 9 but make the points come out as filled squares.
+If that turns out to be easy, try red filled squares. Then try each square a different colour.
+
+**Tip: **there are a lot of ways to do this! The simplest is to look for a *graphical parameter* to do with plot characters and add the appropriate argument to your `plot()` command.
+
+## Editor
+So far you've been entering simple instructions into the Console. But this can be a pain, for two reasons: (1) as you change commands like `plot()`, it would be nice to be able to edit what you have already typed in; and (2) it would be good to keep a record of what you've done, so that you can do it again at a later stage, perhaps with changes.
+
+Instead of using the console, you can use the *Editor* to type commands. The Editor creates a file which records all of the commands you type in, so you can run them again later, or build up complex commands and functions over several lines of text.
+
+`r task()`in the Editor, type `x <- seq(-3.5, 3.5)` and hit Enter. What happens?
+
+`r task()`click on the line you just typed in, and hit control-Enter (squiggly-Enter if you're on a Mac). What happens now?
+
+`r task()`what does `x` become? What does `seq()` do?
+
+`r task()`add the following lines in the Editor: 
+
+``` {r}
+y <- dnorm(x)
+# plot normal distribution
+plot(x, y, type = 'l')
+``` 
+
+`r task()`click on `y <- dnorm(x)`, and hit control-Enter. Press control-Enter twice more to pass the following lines to the console. What does `#` do? What is the end result?
+
+You might not be very satisfied with your end result (not a very curvy curve!). This is probably because we calculated values of the normal distribution (in `y`) for too few values of `x`. Maybe we can fix that\ldots
+
+`r task()`change the first line of your script in the editor so that it reads:
+``` {r} 
+x <- seq(-3.5, 3.5, length.out = 49)
+``` 
+
+`r task()`select your entire script using the mouse, and press control-Enter. What happens? Look both at the plot and at the Global Environment above it.
+
+`r task()`change the last line of your script so that it reads:
+``` {r}
+plot(x, y, type = 'l', lwd = 3, lty = 2, col = 'red')
+``` 
+
+`r task()`create a new plot. Do you need to run just the `plot()` line, or the whole script? Why? What does the plot look like now?
+
+`r task()`advanced task: Using <www.rseek.org> and/or `R` help, try and edit your plot command to produce a plot similar to that in figure\ \ref{fig:n}, including the title and axis labels
+
+``` {r nor, include = F, eval = T}
+x <- seq(-3.5, 3.5, length.out = 49)
+# notice how a long line of code can be wrapped over several lines
+# in the editor to improve readability.
+plot(x, dnorm(x), main = 'The Normal Distribution',
+     ylab = 'Density', xlab = 'SDs from the Mean',
+     lwd = 4, col = 'red', type = 'l')
+``` 
+\begin{figure}[th]
+  \centering
+  \includegraphics[width = .6\linewidth]{img/auto-nor}
+  \caption{Normal Distribution produced using \texttt{seq()}, \texttt{dnorm()}, \texttt{plot()}.}\label{fig:n}
+\end{figure}
+
+`r task()`save `myscript.R` (click on the disk icon).
+
+# A simple analysis
+The point of this section is to get you used to playing with `R`, including loading, creating, plotting, and analysing data. What follows isn't necessarily meaningful or the `best' way of doing things; all of the numbers are made up, and the techniques used are a bit cumbersome, but they should give a flavour of some of the things you can do. Don't worry if you're not familiar with all of the statistical concepts yet (although many of you will be); these will all be explained as the course progresses.
+
+
+`r task()`open a new blank script; save it as `iq.R` (see Task\ 2)
+
+`r task()`type in the following and execute the commands:
+
+``` {r}
+## compare iqs
+library(foreign)
+df <- read.spss('http://is.gd/iqs_spss', to.data.frame = TRUE)
+``` 
+
+`r task()`you should see a new variable `df` in the Global environment. Click on this. You should get something like figure\ \ref{fig:df}
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width = .4\linewidth]{img/rstudio3}
+  \caption{Viewing the data in \texttt{df}}
+  \label{fig:df}
+\end{figure}
+
+`df` is some data in a *data frame*, roughly equivalent to a worksheet in SPSS, or a spreadsheet. As you've seen, you can inspect it by clicking it in the Global environment, but it's not editable (through point and click); we'll get on to editing $etc.,$\ later in the course.
+
+The two lines of script you've run have done a huge amount of work, in fact. They've connected to the internet and downloaded an SPSS `.sav` data file, and converted it to `R` format. If you look at the Console, you will see some (harmless) warnings reflecting the fact that the data was created in a recent version of SPSS.
+
+The data is supposed to represent the IQs of a particular football team, Fulchester~United (11 players plus one substitute). We'd like to know whether Fulchester's mean IQ is higher than what you might expect from a totally `average' football team, drawn indiscriminately from the general population.
+
+`r task()`type the following in to `iq.R` (you might need to click on the tab first):
+
+``` {r}
+# draw 12 random IQs from the `general population'
+# assuming mean population IQ is 100 and SD is 15
+iqs <- rnorm(12, mean = 100, sd = 15)
+``` 
+
+`r task()`what does `iqs` contain? (You might want to type `iqs` into the Console to see all of the values without affecting your script)
+
+`r task()`type `summary(iqs)` into the Console for some useful further information
+
+`r task()`look at your neighbour's Console, if they're at roughly the same stage as you. Why is their output for `summary(iqs)` different?
+
+`r task()`now add the following lines to your script and run them
+
+``` {r} 
+# create new data frame with labels
+df2 <- data.frame(ID = LETTERS[13:24], IQ = iqs)
+``` 
+
+`r task()`look at `df2` and see if you can work out what you've created
+
+**Pro tip: **`LETTERS[13:24]` is an example of *subscripting*. Go the console and type `LETTERS`: what do you get? On the next line, type `13:24` and see what that returns. Now run `LETTERS[13:24]`. Can you see what it's doing? Try `LETTERS[c(13, 1, 18, 20, 9, 14)]`
+
+`r task()`type the following in to the `iq.R` script (`rbind()` binds by rows) and run it:
+
+``` {r}
+# bind the two data frames together
+df <- rbind(df, df2)
+``` 
+
+`r task()`what has happened to `df`? (If you want to click on `df` but the tab is already open, close the tab first)
+
+Note that `df` contains all of the IQs in one column. We need to add another column to *index* which sample the IQs come from (called a *factor* in `R`).
+
+`r task()`add the following to your script and run it:
+
+``` {r}
+# add a factor
+df$source <- gl(2, 12, labels = c('Fulchester', 'Random'))
+``` 
+
+`gl()` stands for 'generate levels' (of a factor). The first number gives the number of levels; the second, how many times each level is repeated; the `labels =` argument allows us to call the levels something more useful than `c(1, 2)` (which would be the default).
+
+`r task()`look at `df` again (you might need to close the tab and reopen it). What have you just added?
+
+**It's time to do some statistics!**  This is a very simple test, and the results will vary depending on the random sample you created earlier, but let's compare the Fulchester sample with our random sample:
+
+`r task()`add the following to your script and run it:
+
+**Tip: **`IQ ~ source` can be read as "`IQ` is predicted by `source`". There are other ways of specifying a t-test but this way makes it clear what you are expecting to affect what
+
+``` {r}
+# run a t-test
+t.test(IQ ~ source, data = df)
+``` 
+
+`r task()`the output of the t-test should be in the Console below. What can you say about your totally fake data?
+
+## Last Things
+
+`r task()`exit the project (*Lab1$\rightarrow$Close Project*, save anything when asked)
+
+You should get an empty RStudio. You can create a different project for different work (using the *Project* dropdown), or you can re-open *Lab1* and you should be exactly where you were before.
+
+When you restart RStudio next time, you can go straight to the *Projects* tab to open an existing project (RStudio will remember where the relevant files are), or you can create a brand new project in a new directory (and switch between projects at will at any time).
+
+## That's it for today! Feedback on this, and whether you feel you learnt anything, very welcome.

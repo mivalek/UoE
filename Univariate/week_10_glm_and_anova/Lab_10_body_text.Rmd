@@ -1,0 +1,61 @@
+
+``` {r, include = FALSE, eval = F}
+### if there is no fox.csv in course materials
+my.df <- data.frame(id = factor(sample(combn(LETTERS, 3, FUN = function(x) {paste(x, collapse = '')}), size)))
+### people who've declined have a different outcome
+my.df$home <- gl(3, 1, size, labels = c('country', 'suburban', 'urban'))
+my.df$spectrum <- round(rnorm(size, 0, 33), 0)
+
+fup <- -5 + (my.df$spectrum - min(my.df$spectrum)) / (diff(range(my.df$spectrum)) / 20)
+fup.2 <- exp(fup) / (1 + exp(fup))
+with(my.df, plot(spectrum[order(spectrum)], fup.2[order(spectrum)], type = 'l'))
+my.df$followup <- rbinom(size, 1, fup.2)
+with(my.df, points(spectrum, followup))
+m <- glm(followup ~ spectrum, data = my.df, family = binomial)
+### predict fox hunting from iq and environment (no diff betw urban & suburban)
+my.df$followup <- factor(my.df$followup, labels = c('N', 'Y'))
+country <- rep(0, size)
+country[my.df$home! = 'urban'] <- ifelse(my.df$home[my.df$home! = 'urban'] == 'suburban', .2, 2)
+my.df$prohunt <- 0*my.df$spectrum + 2*country + .02*country*my.df$spectrum
+my.df$prohunt[my.df$followup=='N'] <- min(my.df$prohunt) + rnorm(length(my.df$prohunt[my.df$followup=='N']), -2, .05)
+my.df$prohunt <- my.df$prohunt + rnorm(size, 0, 3)
+my.df$prohunt <- (my.df$prohunt - min(my.df$prohunt)) / diff(range(my.df$prohunt)) * 6 + 1
+plot(my.df$spectrum, my.df$prohunt, col = as.numeric(my.df$home))
+fox <- my.df
+fox <- fox[order(fox$id), ]
+fox$prohunt[sample(length(fox$prohunt), 2)] <- 0
+fox$spectrum[sample(length(fox$spectrum), 4)] <- -999
+fox$prohunt <- round(fox$prohunt, 2)
+save(fox, file = 'fox.Rdata')
+write.csv(fox, file = 'fox.csv', row.names = F)
+```
+```{r, include = F}
+size <- 412
+```
+
+**This lab is a little less guided, and a little more like the take-home exam.** The main thing to remember when carrying out an exercise like this is to make it clear *why* you made the decisions you made, either as a writeup or as comments (beginning with `#`) in the R\ code. There are no absolutely right or wrong answers, just sensible and less sensible things to try out!
+
+Take some time to read this document fully before getting started with any analyses. Think about each variable in the dataset in terms of what it measures and the type of data it provides.
+
+**Tip: **Don't be tempted to immediately run a certain model. Analysing a collected dataset is a process and these labs have been structured to illustrate many of the steps taken when analysing data 'for real'. Think about some of the exercises from past labs to generate ideas about the steps you want to take.
+
+## The Study
+A dataset is available on the Learn website. The data concerns a study investigating attitudes about fox-hunting in the UK. `r size` participants were asked to rate their attitude towards hunting by marking a point along a line. The endpoints of the line were labelled *strongly opposed* and *strongly in favour*; the distance of each mark along its line was later measured, and scaled to a variable ranging from 1\ (opposed) to 7\ (in favour). The resulting variable is called `prohunt` in the dataset.
+
+Also measured were where participants lived (`urban`, `suburban`, `country`) as well as their politics, using the Stone-Corley Wingedness Inventory, which returns a score along the political spectrum ranging from -100 (extremely left-wing, socialist) to 100 (extremely right-wing, conservative). This score can be found in the `spectrum` column. Finally, participants were asked to indicate whether they were prepared to participate in a followup interview; the `followup` column shows their response.
+
+## The Task
+**Your job this week is simply to 'analyse the data'. **
+By 'analyse', we mean look at the data, and produce some graphics and statistics to indicate what the relationship is between where people live, their politics, and their attitudes towards fox-hunting.
+
+**Some things you might want to think about: **
+
+* Does all of the data look sensible, given the descriptions above?
+
+* Might the variables interact to predict attitudes towards hunting?
+
+* Did participants decide not to participate in the followup at random?
+
+The types of output you *might* produce include regression statistics, scatterplots, and graphs showing regression effects, as well as documented `R`\ code to show what you did in analysing the data.
+
+Good luck with the exam!

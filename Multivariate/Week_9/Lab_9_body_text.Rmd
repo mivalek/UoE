@@ -1,0 +1,42 @@
+
+```{r, include = F}
+t <- q <- 1 # Task counter
+task <- function(x = t) {
+  t <<- x + 1
+  q <<- 1
+  return(paste0("**Task ", x, ": **"))
+}
+qu <- function(reset = F, x = q, y = t - 1, sol = solution) {
+  q <<- ifelse(reset, 1, x + 1)
+  return(paste0(if(!sol) {"- "}, "**Question ", y, ".", x, ": **"))
+}
+library(OpenMx)
+library(umx)
+```
+
+\newif\ifsol
+\sol`r ifelse(solution, "true", "false")`
+
+
+\ifsol
+
+```{r, include = solution}
+### ANSWER ###
+```
+
+
+
+&nbsp;
+
+\fi
+
+
+
+
+## Useful links
+
+[David Kenny's page](http://davidakenny.net/cm/fit.htm)
+
+[`umx` home page](http://tbates.github.io)
+
+[`OpenMx` home page](http://openmx.ssri.psu.edu)
